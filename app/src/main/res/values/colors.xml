@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="brand">#176B58</color>
+    <color name="surface">#F7F6F1</color>
+    <color name="launcher_background">#176B58</color>
+    <color name="launcher_background_calculator">#3B4A56</color>
+    <color name="launcher_background_notes">#8A6A3B</color>
+    <color name="launcher_background_tasks">#4A5D3A</color>
+    <color name="widget_background">#176B58</color>
+    <color name="widget_text">#FFFFFF</color>
+</resources>

@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- The interface itself is drawn with Compose; the platform theme only supplies the
+         window background and the status bar behaviour before the first frame. -->
+    <style name="Theme.Naqaa" parent="android:style/Theme.Material.Light.NoActionBar">
+        <item name="android:windowBackground">@color/surface</item>
+        <item name="android:colorAccent">@color/brand</item>
+        <item name="android:windowLightStatusBar">true</item>
+        <item name="android:statusBarColor">@color/surface</item>
+        <item name="android:navigationBarColor">@color/surface</item>
+    </style>
+
+    <!-- Used by the two screens that must cover whatever is underneath: a locked
+         application and the wait before protection is switched off. -->
+    <style name="Theme.Naqaa.Fullscreen" parent="Theme.Naqaa">
+        <item name="android:windowFullscreen">true</item>
+        <item name="android:windowContentOverlay">@null</item>
+        <item name="android:backgroundDimEnabled">false</item>
+    </style>
+</resources>
