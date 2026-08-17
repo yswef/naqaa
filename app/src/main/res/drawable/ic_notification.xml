@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Notification icon: a shield outline, drawn in one colour as the platform expects. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M12,2L4,5.2V11c0,4.8 3.4,9.3 8,10.4c4.6,-1.1 8,-5.6 8,-10.4V5.2L12,2zM12,4.2l6,2.4v4.4c0,3.7 -2.5,7.2 -6,8.2c-3.5,-1 -6,-4.5 -6,-8.2V6.6L12,4.2z" />
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M11,8h2v4.5h-2zM11,13.6h2v2h-2z" />
+</vector>
