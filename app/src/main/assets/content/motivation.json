@@ -1,0 +1,182 @@
+[
+ {
+  "id": "m0",
+  "context": "protect",
+  "ar": "الحماية ليست قيدًا عليك، بل بابٌ تختار أن تمر منه إلى ما تحب.",
+  "en": "Protection is not a cage; it is a door you choose to walk through."
+ },
+ {
+  "id": "m1",
+  "context": "protect",
+  "ar": "أنت أقوى من اللحظة التي تمر بك، وهذه اللحظة ستمر.",
+  "en": "You are stronger than the moment passing through you."
+ },
+ {
+  "id": "m2",
+  "context": "protect",
+  "ar": "خطوة صغيرة اليوم أفضل من قرار عظيم تؤجله.",
+  "en": "A small step today beats a great decision postponed."
+ },
+ {
+  "id": "m3",
+  "context": "protect",
+  "ar": "لم تُخلق لتُستعبد لشاشة، بل لتختار.",
+  "en": "You were not made to be owned by a screen."
+ },
+ {
+  "id": "m4",
+  "context": "protect",
+  "ar": "من ترك شيئًا لله عوّضه الله خيرًا منه.",
+  "en": "Whoever leaves something for the sake of God, God replaces it with better."
+ },
+ {
+  "id": "m5",
+  "context": "protect",
+  "ar": "تذكّر سببك الآن، فقد كتبته بيدك في لحظة صفاء.",
+  "en": "Remember the reason you wrote down in a clear moment."
+ },
+ {
+  "id": "m6",
+  "context": "urge",
+  "ar": "الرغبة موجة، لا تقاومها بالصراخ بل بالانتظار.",
+  "en": "An urge is a wave. Do not fight it with panic; outlast it."
+ },
+ {
+  "id": "m7",
+  "context": "urge",
+  "ar": "قف، تنفّس، غيّر المكان، وستمرّ الرغبة.",
+  "en": "Stop. Breathe. Move. The urge passes."
+ },
+ {
+  "id": "m8",
+  "context": "urge",
+  "ar": "أنت لا تحتاج إلى هذا المحتوى، أنت تحتاج إلى راحة.",
+  "en": "You do not need that content. You need rest."
+ },
+ {
+  "id": "m9",
+  "context": "urge",
+  "ar": "كل دقيقة تصبر فيها الآن تخفف الرغبة التي بعدها.",
+  "en": "Every minute you hold on now weakens the next urge."
+ },
+ {
+  "id": "m10",
+  "context": "urge",
+  "ar": "توضأ، فإن الوضوء يطفئ ما في الصدر.",
+  "en": "Make ablution; it cools what is burning inside."
+ },
+ {
+  "id": "m11",
+  "context": "urge",
+  "ar": "اخرج من المكان الذي اعتدت فيه على الزلة.",
+  "en": "Leave the place where this habit usually happens."
+ },
+ {
+  "id": "m12",
+  "context": "urge",
+  "ar": "اتصل بشخص تثق به، الحديث يكسر العزلة.",
+  "en": "Call someone you trust. Talking breaks isolation."
+ },
+ {
+  "id": "m13",
+  "context": "lapse",
+  "ar": "الزلة لا تصنع منك شخصًا آخر، والتوبة تفتح بابًا جديدًا.",
+  "en": "A slip does not define you; repentance opens a new door."
+ },
+ {
+  "id": "m14",
+  "context": "lapse",
+  "ar": "الشيطان يريدك أن تيأس، فلا تعطه ما يريد.",
+  "en": "Despair is exactly what the whisper wants. Do not hand it over."
+ },
+ {
+  "id": "m15",
+  "context": "lapse",
+  "ar": "قُم، اغتسل، توضأ، وصلِّ؛ الفعل يشفيك أسرع من اللوم.",
+  "en": "Stand up, wash, make ablution and pray. Action heals faster than blame."
+ },
+ {
+  "id": "m16",
+  "context": "lapse",
+  "ar": "رحم الله من عاد ولم يصرّ.",
+  "en": "Mercy is for the one who returns, not the one who insists."
+ },
+ {
+  "id": "m17",
+  "context": "lapse",
+  "ar": "عدّادك مهم، لكن قلبك التائب أهم.",
+  "en": "Your counter matters, but your returning heart matters more."
+ },
+ {
+  "id": "m18",
+  "context": "lapse",
+  "ar": "لا تقارن نفسك بمن لا تعرف حاله، قارن نفسك بنفسك أمس.",
+  "en": "Do not compare yourself with strangers. Compare yourself with yesterday."
+ },
+ {
+  "id": "m19",
+  "context": "dawn",
+  "ar": "الفجر وقت تبدأ فيه الصفحة من جديد.",
+  "en": "Dawn is when the page turns again."
+ },
+ {
+  "id": "m20",
+  "context": "dawn",
+  "ar": "من صلى الفجر كان في ذمة الله حتى يمسي.",
+  "en": "Whoever prays the dawn prayer is under God’s protection until evening."
+ },
+ {
+  "id": "m21",
+  "context": "dawn",
+  "ar": "بكّرت، فافتح يومك بما ينفع.",
+  "en": "You woke early. Open the day with something useful."
+ },
+ {
+  "id": "m22",
+  "context": "streak",
+  "ar": "أيامك النظيفة تشهد لك، واستمرارك أبلغ من الكلام.",
+  "en": "Your clean days are your own testimony."
+ },
+ {
+  "id": "m23",
+  "context": "streak",
+  "ar": "كل يوم يمر يبني عادة، والعادة أقوى من الحماس.",
+  "en": "Each day builds a habit, and a habit outlasts motivation."
+ },
+ {
+  "id": "m24",
+  "context": "streak",
+  "ar": "التقدّم ليس خطًّا مستقيمًا، والمهم ألا تتوقف.",
+  "en": "Progress is not a straight line; what matters is not stopping."
+ },
+ {
+  "id": "m25",
+  "context": "streak",
+  "ar": "احتفل بهدوء، ثم واصل الخطوة التالية.",
+  "en": "Celebrate quietly, then take the next step."
+ },
+ {
+  "id": "m26",
+  "context": "night",
+  "ar": "الليل أكثر وقت تضعف فيه الإرادة، فاجعل الهاتف بعيدًا.",
+  "en": "Willpower is weakest at night; keep the phone out of reach."
+ },
+ {
+  "id": "m27",
+  "context": "night",
+  "ar": "نومك عبادة، ولا خير في سهر يتركك هزالًا.",
+  "en": "Sleep is part of your worship; late nights leave you hollow."
+ },
+ {
+  "id": "m28",
+  "context": "night",
+  "ar": "أغلق الباب الذي اعتدت أن تدخله ليلًا.",
+  "en": "Close the door you usually open at night."
+ },
+ {
+  "id": "m29",
+  "context": "night",
+  "ar": "وضع الليل يحميك حتى الفجر، نم مطمئنًا.",
+  "en": "Night mode guards you until dawn. Sleep at ease."
+ }
+]
