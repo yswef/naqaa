@@ -1,0 +1,224 @@
+{
+  "shortVideo": [
+    {
+      "package": "com.google.android.youtube",
+      "ids": [
+        "reel_watch_fragment_root",
+        "reel_watch_player",
+        "reel_recycler_view_container",
+        "shorts_player_component",
+        "shorts_shelf",
+        "reel_time_bar"
+      ],
+      "labels": ["Shorts", "shorts", "المقاطع القصيرة"],
+      "wholeApp": false
+    },
+    {
+      "package": "com.instagram.android",
+      "ids": [
+        "clips_viewer_view_pager",
+        "clips_viewer_video_layout",
+        "clips_media_short_code",
+        "clips_viewer_media_group",
+        "reel_viewer"
+      ],
+      "labels": ["Reels", "reels", "ريلز", "مقاطع"],
+      "wholeApp": false
+    },
+    {
+      "package": "com.facebook.katana",
+      "ids": [
+        "reels_viewer",
+        "reels_video_container",
+        "reels_home_fragment",
+        "reels_root_view"
+      ],
+      "labels": ["Reels", "reels", "ريلز"],
+      "wholeApp": false
+    },
+    {
+      "package": "com.facebook.lite",
+      "ids": ["reels_viewer", "reels_video_container"],
+      "labels": ["Reels", "reels", "ريلز"],
+      "wholeApp": false
+    },
+    {
+      "package": "com.snapchat.android",
+      "ids": ["spotlight_view", "spotlight_story_container"],
+      "labels": ["Spotlight", "spotlight", "سبوتلايت"],
+      "wholeApp": false
+    },
+    {
+      "package": "com.zhiliaoapp.musically",
+      "ids": [],
+      "labels": ["TikTok"],
+      "wholeApp": true
+    },
+    {
+      "package": "com.ss.android.ugc.trill",
+      "ids": [],
+      "labels": ["TikTok"],
+      "wholeApp": true
+    }
+  ],
+  "browsers": [
+    {
+      "package": "com.android.chrome",
+      "addressIds": ["url_bar", "url_bar_title", "location_bar"],
+      "keywords": []
+    },
+    {
+      "package": "org.mozilla.firefox",
+      "addressIds": ["mozac_browser_toolbar_url_view", "url_bar_title", "url_view"],
+      "keywords": []
+    },
+    {
+      "package": "com.sec.android.app.sbrowser",
+      "addressIds": ["location_bar_edit_text", "url_bar", "location_bar"],
+      "keywords": []
+    },
+    {
+      "package": "com.microsoft.emmx",
+      "addressIds": ["url_bar", "location_bar", "url_bar_title"],
+      "keywords": []
+    },
+    {
+      "package": "com.brave.browser",
+      "addressIds": ["url_bar", "location_bar"],
+      "keywords": []
+    },
+    {
+      "package": "com.opera.browser",
+      "addressIds": ["url_field", "urlbar", "address_bar"],
+      "keywords": []
+    },
+    {
+      "package": "com.opera.mini.native",
+      "addressIds": ["url_field", "urlbar", "address_bar"],
+      "keywords": []
+    },
+    {
+      "package": "com.duckduckgo.mobile.android",
+      "addressIds": ["omnibarTextInput", "omnibar_text_input", "url_bar"],
+      "keywords": []
+    },
+    {
+      "package": "com.quark.browser",
+      "addressIds": ["url_bar", "search_bar", "address_bar"],
+      "keywords": []
+    },
+    {
+      "package": "com.UCMobile.intl",
+      "addressIds": ["url_input", "address_bar"],
+      "keywords": []
+    },
+    {
+      "package": "com.vivaldi.browsers",
+      "addressIds": ["url_bar", "url_field"],
+      "keywords": []
+    },
+    {
+      "package": "com.instagram.android.browsers",
+      "addressIds": ["url_bar"],
+      "keywords": []
+    }
+  ],
+  "keywords": [
+    "porn",
+    "pornhub",
+    "porno",
+    "xvideos",
+    "xnxx",
+    "xhamster",
+    "redtube",
+    "youporn",
+    "spankbang",
+    "chaturbate",
+    "stripchat",
+    "livejasmin",
+    "onlyfans",
+    "rule34",
+    "eporner",
+    "hqporner",
+    "txxx",
+    "beeg",
+    "motherless",
+    "سكس",
+    "سيكس",
+    "اباحي",
+    "إباحي",
+    "اباحية",
+    "إباحية",
+    "افلام اباحية",
+    "مشاهدة افلام اباحية",
+    "مقاطع سكس",
+    "بنات للتعارف الجنسي"
+  ],
+  "riskySettings": {
+    "packages": [
+      "com.android.settings",
+      "com.google.android.packageinstaller",
+      "com.android.packageinstaller",
+      "com.samsung.android.packageinstaller",
+      "com.miui.packageinstaller",
+      "com.miui.securitycenter"
+    ],
+    "groups": [
+      {
+        "action": "UNINSTALL",
+        "keywords": [
+          "إلغاء التثبيت",
+          "إزالة التطبيق",
+          "حذف التطبيق",
+          "مسح البيانات",
+          "مسح التخزين",
+          "Uninstall",
+          "Clear data",
+          "Clear storage"
+        ]
+      },
+      {
+        "action": "ACCESSIBILITY_OFF",
+        "keywords": [
+          "إمكانية الوصول",
+          "خدمة الوصول",
+          "خدمات الوصول",
+          "Accessibility",
+          "خدمات التطبيق",
+          "التطبيقات المثبتة"
+        ]
+      },
+      {
+        "action": "VPN_OFF",
+        "keywords": [
+          "شبكة افتراضية خاصة",
+          "VPN",
+          "Virtual private network",
+          "Always-on",
+          "الاتصال دائما"
+        ]
+      },
+      {
+        "action": "ADMIN_OFF",
+        "keywords": [
+          "مسؤول الجهاز",
+          "مسؤولو الجهاز",
+          "إدارة الجهاز",
+          "مسؤول",
+          "Device admin",
+          "Device administrator"
+        ]
+      },
+      {
+        "action": "LOCK_DISABLE",
+        "keywords": [
+          "إيقاف الخدمة",
+          "إيقاف",
+          "Turn off",
+          "Disable",
+          "تعطيل"
+        ]
+      }
+    ]
+  }
+}
