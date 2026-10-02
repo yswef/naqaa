@@ -1,0 +1,172 @@
+name: build
+
+on:
+  push:
+    branches: [main, 'arena/**']
+    tags: ['v*']
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      publish:
+        description: Publish a GitHub release from this run
+        type: boolean
+        default: false
+      keystore_base64:
+        description: Base64 of the release keystore, only needed when publishing
+        required: false
+        default: ''
+      store_password:
+        description: Keystore password
+        required: false
+        default: ''
+      key_alias:
+        description: Signing key alias
+        required: false
+        default: ''
+      key_password:
+        description: Signing key password
+        required: false
+        default: ''
+
+permissions:
+  contents: write
+  issues: write
+
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    name: Test and assemble release
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v7
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up the Android SDK
+        uses: android-actions/setup-android@v4
+
+      - name: Install the platform required by compileSdk
+        run: |
+          sdkmanager --install "platforms;android-36" "build-tools;36.0.0" \
+            || sdkmanager --install "platforms;android-36.1" "build-tools;36.0.0" \
+            || sdkmanager --install "platforms;android-36.0" "build-tools;36.0.0"
+
+      - name: Prepare the signing material
+        id: signing
+        env:
+          KEYSTORE_BASE64: ${{ inputs.keystore_base64 }}
+          STORE_PASSWORD: ${{ inputs.store_password }}
+          KEY_ALIAS: ${{ inputs.key_alias }}
+          KEY_PASSWORD: ${{ inputs.key_password }}
+        run: |
+          store_password="$STORE_PASSWORD"
+          key_alias="$KEY_ALIAS"
+          key_password="$KEY_PASSWORD"
+          if [ -z "$KEYSTORE_BASE64" ]; then
+            store_password="$(python3 -c 'import secrets; print(secrets.token_urlsafe(24))')"
+            key_alias="naqaa"
+            key_password="$store_password"
+            keytool -genkeypair -keystore "$RUNNER_TEMP/release.jks" -alias "$key_alias" \
+              -keyalg RSA -keysize 4096 -validity 10000 -dname "CN=yswef, O=Naqaa" \
+              -storepass "$store_password" -keypass "$key_password"
+            echo "ephemeral=true" >> "$GITHUB_OUTPUT"
+          else
+            printf '%s' "$KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/release.jks"
+            echo "ephemeral=false" >> "$GITHUB_OUTPUT"
+          fi
+          echo "::add-mask::$store_password"
+          echo "::add-mask::$key_password"
+          {
+            echo "NAQAA_STORE_FILE=$RUNNER_TEMP/release.jks"
+            echo "NAQAA_STORE_PASSWORD=$store_password"
+            echo "NAQAA_KEY_ALIAS=$key_alias"
+            echo "NAQAA_KEY_PASSWORD=$key_password"
+          } >> "$GITHUB_ENV"
+
+      - name: Run the unit tests
+        id: tests
+        continue-on-error: true
+        run: |
+          set -o pipefail
+          ./gradlew --no-daemon --stacktrace testDebugUnitTest 2>&1 | tee unit-tests.log
+
+      - name: Assemble the release build
+        id: assemble
+        continue-on-error: true
+        run: |
+          set -o pipefail
+          ./gradlew --no-daemon --stacktrace assembleRelease 2>&1 | tee assemble.log
+
+      - name: Report the failure
+        if: steps.tests.outcome == 'failure' || steps.assemble.outcome == 'failure'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_ID: ${{ github.run_id }}
+        run: |
+          grep -hE "^(e|w): |error: |Execution failed|FAILED|Caused by" unit-tests.log assemble.log 2>/dev/null \
+            | head -20 | awk '{print "::error ::" $0}'
+          {
+            echo "Run $RUN_ID on ${{ github.ref_name }}"
+            echo
+            echo "----- assembleRelease -----"
+            tail -c 60000 assemble.log
+            echo
+            echo "----- unit tests -----"
+            tail -c 40000 unit-tests.log
+          } > failure.txt
+          gh issue create --repo "$GITHUB_REPOSITORY" --title "build failure $RUN_ID" --body-file failure.txt
+
+      - name: Stop when a build step failed
+        if: steps.tests.outcome == 'failure' || steps.assemble.outcome == 'failure'
+        run: exit 1
+
+      - name: Report the release size
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          paths = sorted(Path('app/build/outputs/apk/release').glob('*.apk'))
+          if not paths:
+              raise SystemExit('no release APK was produced')
+          for path in paths:
+              size = path.stat().st_size
+              print(f'{path.name}: {size} bytes ({size / 1048576:.2f} MiB)')
+              if size >= 6_000_000:
+                  print(f'::warning ::{path.name} is above the 6 MB target')
+          PY
+          ls -l app/build/outputs/apk/release/
+
+      - name: Upload the release build
+        uses: actions/upload-artifact@v7
+        with:
+          name: naqaa-release-apk
+          path: app/build/outputs/apk/release/*.apk
+          if-no-files-found: error
+
+      - name: Publish the release
+        if: startsWith(github.ref, 'refs/tags/v') || inputs.publish == true
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EPHEMERAL: ${{ steps.signing.outputs.ephemeral }}
+        run: |
+          if [ "$EPHEMERAL" = "true" ]; then
+            {
+              printf '%s\n\n' 'These APKs were signed with a key created for this run, because no signing secret was handed to the workflow. They install normally, but a later release signed with a different key cannot replace them: export the journal first, or hand the workflow a durable keystore through the manual dispatch inputs.'
+              cat CHANGELOG.md
+            } > "$RUNNER_TEMP/notes.md"
+          else
+            cp CHANGELOG.md "$RUNNER_TEMP/notes.md"
+          fi
+          gh release create "${GITHUB_REF_NAME}" app/build/outputs/apk/release/*.apk \
+            --repo "$GITHUB_REPOSITORY" \
+            --title "Naqaa ${GITHUB_REF_NAME}" \
+            --notes-file "$RUNNER_TEMP/notes.md"
