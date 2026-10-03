@@ -1,0 +1,30 @@
+# Gradle
+.gradle/
+build/
+app/build/
+local.properties
+keystore.properties
+*.keystore
+*.jks
+
+# Android Studio / IntelliJ
+.idea/
+*.iml
+captures/
+.externalNativeBuild/
+.cxx/
+
+# Build outputs kept out of version control
+*.apk
+*.aab
+*.ap_
+*.dex
+*.class
+release/
+
+# Operating systems
+.DS_Store
+Thumbs.db
+
+# Content pipeline working directory
+tools/.cache/
