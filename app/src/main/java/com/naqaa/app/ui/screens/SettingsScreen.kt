@@ -48,6 +48,11 @@ import com.naqaa.app.widget.ProgressWidget
 fun SettingsScreen(viewModel: AppViewModel, state: UiState) {
     val context = LocalContext.current
     val preferences = state.preferences
+    val versionName = remember {
+        runCatching {
+            context.packageManager.getPackageInfo(context.packageName, 0).versionName
+        }.getOrNull().orEmpty()
+    }
     var showPinDialog by remember { mutableStateOf(false) }
     var widgetNotice by remember { mutableStateOf<Int?>(null) }
     var showEraseDialog by remember { mutableStateOf(false) }
@@ -201,7 +206,7 @@ fun SettingsScreen(viewModel: AppViewModel, state: UiState) {
 
         SectionCard(title = stringResource(R.string.settings_about)) {
             Text(
-                text = stringResource(R.string.settings_version, "1.0.0"),
+                text = stringResource(R.string.settings_version, versionName),
                 style = MaterialTheme.typography.bodyMedium
             )
             Spacer(Modifier.height(4.dp))
