@@ -106,6 +106,41 @@ jobs:
           set -o pipefail
           ./gradlew --no-daemon --stacktrace assembleRelease 2>&1 | tee assemble.log
 
+      - name: Verify the release build
+        id: verify
+        run: |
+          build_tools="$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)"
+          report="$RUNNER_TEMP/verify.txt"
+          : > "$report"
+          unsigned=0
+          for apk in app/build/outputs/apk/release/*.apk; do
+            name="$(basename "$apk")"
+            size="$(stat -c%s "$apk")"
+            abis="$(unzip -l "$apk" | awk '{print $4}' | grep -oE '^lib/[^/]+/' | sort -u | sed 's|^lib/||; s|/$||' | paste -sd, -)"
+            if "$build_tools/apksigner" verify --print-certs "$apk" > "$RUNNER_TEMP/signer.txt" 2>&1; then
+              signer="$(grep -m1 -i 'SHA-256 digest' "$RUNNER_TEMP/signer.txt" | sed 's/^.*digest: *//')"
+            else
+              signer="NOT SIGNED"
+              unsigned=1
+            fi
+            printf '%s | %s bytes | architectures: %s | certificate: %s\n' \
+              "$name" "$size" "${abis:-res/only}" "$signer" >> "$report"
+          done
+          cat "$report"
+          {
+            echo "### Release files"
+            echo
+            echo '```'
+            cat "$report"
+            echo '```'
+            echo
+            echo "Read with apksigner: the certificate is the fingerprint of the key that signed each file."
+          } >> "$GITHUB_STEP_SUMMARY"
+          if [ "$unsigned" -ne 0 ]; then
+            echo "::error ::a release file is not signed and cannot be installed"
+            exit 1
+          fi
+
       - name: Report the failure
         if: steps.tests.outcome == 'failure' || steps.assemble.outcome == 'failure'
         env:
@@ -159,14 +194,22 @@ jobs:
           EPHEMERAL: ${{ steps.signing.outputs.ephemeral }}
         run: |
           if [ "$EPHEMERAL" = "true" ]; then
-            {
-              printf '%s\n\n' 'These APKs were signed with a key created for this run, because no signing secret was handed to the workflow. They install normally, but a later release signed with a different key cannot replace them: export the journal first, or hand the workflow a durable keystore through the manual dispatch inputs.'
-              cat CHANGELOG.md
-            } > "$RUNNER_TEMP/notes.md"
+            printf '%s\n\n' 'These files were signed with a key created for this run, because no signing secret was handed to the workflow. They install normally, but a later release signed with a different key cannot replace them: uninstall the previous copy first, or hand the workflow a durable keystore through the manual dispatch inputs.' > "$RUNNER_TEMP/notes.md"
           else
-            cp CHANGELOG.md "$RUNNER_TEMP/notes.md"
+            : > "$RUNNER_TEMP/notes.md"
           fi
+          {
+            printf '## Which file to install\n\n'
+            printf -- '- `app-universal-release.apk` installs on every phone, 32-bit and 64-bit alike. Take this one when unsure.\n'
+            printf -- '- `app-arm64-v8a-release.apk` and `app-armeabi-v7a-release.apk` are smaller and cover one architecture each; a 32-bit phone refuses the arm64 file with "App not installed".\n\n'
+            printf 'Android 8.0 or newer is required.\n\n'
+            cat "$RUNNER_TEMP/notes.md"
+            cat CHANGELOG.md
+            printf '\n## Build details\n\n```\n'
+            cat "$RUNNER_TEMP/verify.txt"
+            printf '```\n'
+          } > "$RUNNER_TEMP/release-notes.md"
           gh release create "${GITHUB_REF_NAME}" app/build/outputs/apk/release/*.apk \
             --repo "$GITHUB_REPOSITORY" \
             --title "Naqaa ${GITHUB_REF_NAME}" \
-            --notes-file "$RUNNER_TEMP/notes.md"
+            --notes-file "$RUNNER_TEMP/release-notes.md"
