@@ -86,16 +86,35 @@ urge as resisted.
 
 ## Install
 
-1. Download `app-arm64-v8a-release.apk` or `app-armeabi-v7a-release.apk` from the
-   [releases page](https://github.com/yswef/naqaa/releases).
-2. Open the file and allow installation from this source when Android asks.
-3. Finish the setup walk: language, reason, city and method, location, permissions,
+Android 8.0 or newer. On the [releases page](https://github.com/yswef/naqaa/releases):
+
+| File | For |
+| --- | --- |
+| `app-universal-release.apk` | Any phone. Take this one when unsure: it carries both architectures. |
+| `app-arm64-v8a-release.apk` | 64-bit phones (most devices from 2018 onwards). Smaller download. |
+| `app-armeabi-v7a-release.apk` | 32-bit phones, among them the Galaxy A10 and its generation. Smaller download. |
+
+1. Download the file, open it, and allow installation from this source when Android asks.
+2. Finish the setup walk: language, reason, city and method, location, permissions,
    applications to lock, PIN or biometrics and an optional trusted contact.
-4. Turn on the switches the walk asks for: the VPN consent dialog, the accessibility
+3. Turn on the switches the walk asks for: the VPN consent dialog, the accessibility
    service, device administration, notifications, exact alarms and the battery
    optimization exemption.
-5. In Android's VPN settings, open the entry for Naqaa and enable *Always-on VPN*, so the
+4. In Android's VPN settings, open the entry for Naqaa and enable *Always-on VPN*, so the
    filter comes back after a reboot.
+
+### When Android says "App not installed"
+
+- **The file does not match the phone.** An arm64 file is refused by a 32-bit phone, and
+  that message is all Android shows. Use the universal file, or the `armeabi-v7a` one on a
+  32-bit device.
+- **The download is incomplete.** Compare the size with the release page; a partial file is
+  refused without further explanation.
+- **An older copy signed with another key is installed.** This release is signed with a key
+  that is not kept in the repository, so a build from an earlier tag cannot be updated over
+  it: uninstall the previous copy first, which also removes its journal.
+- **Installation from this source is blocked.** Allow the browser or the file manager to
+  install unknown applications in Android's application settings.
 
 ## Build
 
