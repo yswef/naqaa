@@ -30,8 +30,8 @@ android {
         applicationId = "com.naqaa.app"
         minSdk = 26
         targetSdk = 36
-        versionCode = 1
-        versionName = "1.0.0"
+        versionCode = 2
+        versionName = "1.0.1"
         resourceConfigurations += listOf("ar", "en")
     }
 
@@ -73,7 +73,9 @@ android {
             isEnable = true
             reset()
             include("arm64-v8a", "armeabi-v7a")
-            isUniversalApk = false
+            // The universal file carries both architectures, so a phone whose architecture the
+            // user cannot determine still installs with one download.
+            isUniversalApk = true
         }
     }
 
