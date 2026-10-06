@@ -46,6 +46,20 @@ fun SectionCard(
     }
 }
 
+/**
+ * A line whose text already carries its value. Used where the sentence is written with a
+ * placeholder in the string resources, so the number stays inside the sentence instead of
+ * being placed in a second column.
+ */
+@Composable
+fun ValueLine(text: String) {
+    Text(
+        text = text,
+        style = MaterialTheme.typography.bodyMedium,
+        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)
+    )
+}
+
 @Composable
 fun StatLine(label: String, value: String) {
     Row(
