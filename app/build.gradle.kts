@@ -30,8 +30,8 @@ android {
         applicationId = "com.naqaa.app"
         minSdk = 26
         targetSdk = 36
-        versionCode = 2
-        versionName = "1.0.1"
+        versionCode = 3
+        versionName = "1.0.2"
         resourceConfigurations += listOf("ar", "en")
     }
 
@@ -42,6 +42,12 @@ android {
                 storePassword = storePasswordValue
                 keyAlias = keyAliasValue
                 keyPassword = keyPasswordValue
+                // All three schemes: v2 and v3 are what modern Android checks, and the JAR
+                // signature is kept because the installers on some older vendor builds still
+                // look for it and refuse the file when it is missing.
+                enableV1Signing = true
+                enableV2Signing = true
+                enableV3Signing = true
             }
         }
     }
