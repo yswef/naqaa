@@ -121,10 +121,8 @@ jobs:
             unzip -t "$apk" > /dev/null 2>&1 || integrity=damaged
             badging="$("$build_tools/aapt2" dump badging "$apk" 2>/dev/null \
               | grep -m1 -E "^package:" | sed 's/^package: //')"
-            sdk="$("$build_tools/aapt2" dump badging "$apk" 2>/dev/null \
-              | grep -m1 -E "^sdkVersion:" | sed 's/^sdkVersion://; s/^ *//')"
-            target="$("$build_tools/aapt2" dump badging "$apk" 2>/dev/null \
-              | grep -m1 -E "^targetSdkVersion:" | sed 's/^targetSdkVersion://; s/^ *//')"
+            sdks="$("$build_tools/aapt2" dump badging "$apk" 2>/dev/null \
+              | grep -E "sdkVersion" | paste -sd' ' -)"
             if "$build_tools/apksigner" verify --verbose --print-certs "$apk" > "$RUNNER_TEMP/signer.txt" 2>&1; then
               cert="$(grep -m1 -i 'SHA-256 digest' "$RUNNER_TEMP/signer.txt" | sed 's/^.*digest: *//')"
               schemes="$(grep -ci 'Verified using v[0-9].*scheme.*: true' "$RUNNER_TEMP/signer.txt")"
@@ -141,7 +139,9 @@ jobs:
             printf '%s\n' "  zip integrity: $integrity" >> "$report"
             printf '%s\n' "  signature: $signature" >> "$report"
             printf '%s\n' "  certificate sha-256: $cert" >> "$report"
-            printf '%s\n' "  minSdkVersion: $sdk  targetSdkVersion: $target" >> "$report"
+            printf '%s\n' "  $sdks" >> "$report"
+            printf '%s\n' "  schemes reported by apksigner:" >> "$report"
+            grep -i 'Verified using' "$RUNNER_TEMP/signer.txt" | sed 's/^/    /' >> "$report"
             printf '%s\n' "  $badging" >> "$report"
             printf '%s\n' "  sha256 of the file: $digest" >> "$report"
             printf '%s\n\n' "" >> "$report"
@@ -233,6 +233,7 @@ jobs:
             printf 'أندرويد ٨٫٠ أو أحدث. الملف موقّع ومفحوص قبل النشر، وبصمة `sha256` أدناه تكشف أي تنزيل ناقص.\n\n'
             printf '## Download\n\n'
             printf 'One file: **Naqaa-%s.apk**, for 32-bit and 64-bit phones alike. Android 8.0 or newer.\n\n' "$VERSION"
+            printf 'The file is about 1.6 MB. If Android refuses it, note the exact message and the file name and size shown on the phone.\n\n'
             printf 'Checked with `apksigner` and `unzip` before publishing; the sha256 below shows whether a download arrived complete. The build also produces smaller per-architecture files, and those stay in the workflow artifacts instead of this page.\n\n'
             cat "$RUNNER_TEMP/notes.md"
             cat CHANGELOG.md
