@@ -21,8 +21,13 @@ object PersonaSwitch {
             } else {
                 PackageManager.COMPONENT_ENABLED_STATE_DISABLED
             }
+            // Writing the same state again on every start wakes the package manager for
+            // nothing, and some vendor builds make that write expensive, so only a change
+            // is written.
             runCatching {
-                manager.setComponentEnabledSetting(component, newState, PackageManager.DONT_KILL_APP)
+                if (manager.getComponentEnabledSetting(component) != newState) {
+                    manager.setComponentEnabledSetting(component, newState, PackageManager.DONT_KILL_APP)
+                }
             }
         }
     }
