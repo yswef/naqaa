@@ -3,6 +3,17 @@
 All notable changes to this project are recorded here. The format follows the usual
 sections: added, changed, fixed and removed.
 
+## 1.0.2 - 2026-10-06
+
+### Changed
+
+- Release files carry names that say who they are for, and the universal file is listed
+  first: `for-any-phone`, `32bit-phones-only`, `64bit-phones-only`.
+- Every release file is signed with the JAR scheme as well as the v2 and v3 schemes, which
+  the installers on some vendor builds still require.
+- The release notes list the architectures, the signature schemes and the sha256 of each
+  file, and the install instructions walk through the causes of "App not installed".
+
 ## 1.0.1 - 2026-10-06
 
 ### Added
