@@ -117,14 +117,34 @@ jobs:
             name="$(basename "$apk")"
             size="$(stat -c%s "$apk")"
             abis="$(unzip -l "$apk" | awk '{print $4}' | grep -oE '^lib/[^/]+/' | sort -u | sed 's|^lib/||; s|/$||' | paste -sd, -)"
-            if "$build_tools/apksigner" verify --print-certs "$apk" > "$RUNNER_TEMP/signer.txt" 2>&1; then
-              signer="$(grep -m1 -i 'SHA-256 digest' "$RUNNER_TEMP/signer.txt" | sed 's/^.*digest: *//')"
+            integrity=ok
+            unzip -t "$apk" > /dev/null 2>&1 || integrity=damaged
+            badging="$("$build_tools/aapt2" dump badging "$apk" 2>/dev/null \
+              | grep -m1 -E "^package:" | sed 's/^package: //')"
+            sdk="$("$build_tools/aapt2" dump badging "$apk" 2>/dev/null \
+              | grep -m1 -E "^sdkVersion:" | sed 's/^sdkVersion://; s/^ *//')"
+            target="$("$build_tools/aapt2" dump badging "$apk" 2>/dev/null \
+              | grep -m1 -E "^targetSdkVersion:" | sed 's/^targetSdkVersion://; s/^ *//')"
+            if "$build_tools/apksigner" verify --verbose --print-certs "$apk" > "$RUNNER_TEMP/signer.txt" 2>&1; then
+              cert="$(grep -m1 -i 'SHA-256 digest' "$RUNNER_TEMP/signer.txt" | sed 's/^.*digest: *//')"
+              schemes="$(grep -ci 'Verified using v[0-9].*scheme.*: true' "$RUNNER_TEMP/signer.txt")"
+              signature="signed with $schemes scheme(s)"
             else
-              signer="NOT SIGNED"
+              cert="NOT SIGNED"
+              signature="NOT SIGNED"
               unsigned=1
             fi
-            printf '%s | %s bytes | architectures: %s | certificate: %s\n' \
-              "$name" "$size" "${abis:-res/only}" "$signer" >> "$report"
+            digest="$(sha256sum "$apk" | cut -d' ' -f1)"
+            printf '%s\n' "file: $name" >> "$report"
+            printf '%s\n' "  size: $size bytes" >> "$report"
+            printf '%s\n' "  architectures: ${abis:-none (code only)}" >> "$report"
+            printf '%s\n' "  zip integrity: $integrity" >> "$report"
+            printf '%s\n' "  signature: $signature" >> "$report"
+            printf '%s\n' "  certificate sha-256: $cert" >> "$report"
+            printf '%s\n' "  minSdkVersion: $sdk  targetSdkVersion: $target" >> "$report"
+            printf '%s\n' "  $badging" >> "$report"
+            printf '%s\n' "  sha256 of the file: $digest" >> "$report"
+            printf '%s\n\n' "" >> "$report"
           done
           cat "$report"
           {
@@ -133,8 +153,6 @@ jobs:
             echo '```'
             cat "$report"
             echo '```'
-            echo
-            echo "Read with apksigner: the certificate is the fingerprint of the key that signed each file."
           } >> "$GITHUB_STEP_SUMMARY"
           if [ "$unsigned" -ne 0 ]; then
             echo "::error ::a release file is not signed and cannot be installed"
@@ -187,6 +205,19 @@ jobs:
           path: app/build/outputs/apk/release/*.apk
           if-no-files-found: error
 
+      - name: Stage the release files
+        run: |
+          mkdir -p "$RUNNER_TEMP/dist"
+          version="$(grep -m1 'versionName' app/build.gradle.kts | sed 's/.*"\(.*\)".*/\1/')"
+          cp app/build/outputs/apk/release/app-universal-release.apk \
+             "$RUNNER_TEMP/dist/Naqaa-$version-for-any-phone.apk"
+          cp app/build/outputs/apk/release/app-armeabi-v7a-release.apk \
+             "$RUNNER_TEMP/dist/Naqaa-$version-32bit-phones-only.apk"
+          cp app/build/outputs/apk/release/app-arm64-v8a-release.apk \
+             "$RUNNER_TEMP/dist/Naqaa-$version-64bit-phones-only.apk"
+          ls -l "$RUNNER_TEMP/dist"
+          echo "VERSION=$version" >> "$GITHUB_ENV"
+
       - name: Publish the release
         if: startsWith(github.ref, 'refs/tags/v') || inputs.publish == true
         env:
@@ -194,22 +225,29 @@ jobs:
           EPHEMERAL: ${{ steps.signing.outputs.ephemeral }}
         run: |
           if [ "$EPHEMERAL" = "true" ]; then
-            printf '%s\n\n' 'These files were signed with a key created for this run, because no signing secret was handed to the workflow. They install normally, but a later release signed with a different key cannot replace them: uninstall the previous copy first, or hand the workflow a durable keystore through the manual dispatch inputs.' > "$RUNNER_TEMP/notes.md"
+            printf '%s\n\n' 'The files were signed with a key created for this run, because no signing secret was handed to the workflow. They install normally, but a later release signed with a different key cannot replace them: uninstall the previous copy first, or hand the workflow a durable keystore through the manual dispatch inputs.' > "$RUNNER_TEMP/notes.md"
           else
             : > "$RUNNER_TEMP/notes.md"
           fi
           {
-            printf '## Which file to install\n\n'
-            printf -- '- `app-universal-release.apk` installs on every phone, 32-bit and 64-bit alike. Take this one when unsure.\n'
-            printf -- '- `app-arm64-v8a-release.apk` and `app-armeabi-v7a-release.apk` are smaller and cover one architecture each; a 32-bit phone refuses the arm64 file with "App not installed".\n\n'
-            printf 'Android 8.0 or newer is required.\n\n'
+            printf '## أي ملف تنزّل؟\n\n'
+            printf 'نزّل الملف الأول: **Naqaa-%s-for-any-phone.apk**. يعمل على كل الهواتف، ٣٢-بت و٦٤-بت.\n\n' "$VERSION"
+            printf 'لا تنزّل ملف `64bit` إذا كان هاتفك ٣٢-بت (مثل جالاكسي A10): أندرويد يرفضه برسالة «التطبيق ليس مثبتا» بلا أي توضيح.\n\n'
+            printf '## Which file to install?\n\n'
+            printf 'Take the first one: **Naqaa-%s-for-any-phone.apk**. It carries both architectures.\n\n' "$VERSION"
+            printf -- '- `Naqaa-%s-32bit-phones-only.apk` is a smaller file for 32-bit phones, among them the Galaxy A10.\n' "$VERSION"
+            printf -- '- `Naqaa-%s-64bit-phones-only.apk` is a smaller file for 64-bit phones; a 32-bit phone refuses it.\n\n' "$VERSION"
+            printf 'Android 8.0 or newer. Every file below was checked with `apksigner` and `unzip`; the sha256 lets you confirm your download arrived complete.\n\n'
             cat "$RUNNER_TEMP/notes.md"
             cat CHANGELOG.md
             printf '\n## Build details\n\n```\n'
             cat "$RUNNER_TEMP/verify.txt"
             printf '```\n'
           } > "$RUNNER_TEMP/release-notes.md"
-          gh release create "${GITHUB_REF_NAME}" app/build/outputs/apk/release/*.apk \
+          gh release create "${GITHUB_REF_NAME}" \
+            "$RUNNER_TEMP/dist/Naqaa-$VERSION-for-any-phone.apk" \
+            "$RUNNER_TEMP/dist/Naqaa-$VERSION-32bit-phones-only.apk" \
+            "$RUNNER_TEMP/dist/Naqaa-$VERSION-64bit-phones-only.apk" \
             --repo "$GITHUB_REPOSITORY" \
             --title "Naqaa ${GITHUB_REF_NAME}" \
             --notes-file "$RUNNER_TEMP/release-notes.md"
