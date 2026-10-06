@@ -36,6 +36,14 @@
     <string name="collapse">إخفاء</string>
     <string name="confirm">تأكيد</string>
     <string name="content_unavailable">المحتوى غير متوفر</string>
+    <string name="crash_body">التطبيق لم يكمل فتحه في المرة السابقة. النص التالي من الجهاز نفسه ولم يُرسل إلى أي مكان. انسخه وأرسله لصاحب التطبيق حتى يُصلح السبب.</string>
+    <string name="crash_continue">متابعة إلى التطبيق</string>
+    <string name="crash_copied">تم النسخ</string>
+    <string name="crash_copy">نسخ التفاصيل</string>
+    <string name="crash_exception">توقف بسبب خطأ</string>
+    <string name="crash_interrupted">توقف قبل ظهور الشاشة</string>
+    <string name="crash_share">إرسال التفاصيل</string>
+    <string name="crash_title">تفاصيل توقف التطبيق</string>
     <string name="delay_accessibility_off">إيقاف خدمة الوصول يعني أن الريلز والمقاطع القصيرة ستعود للظهور، وأن كلمات المتصفح لن تُمنع.</string>
     <string name="delay_admin_off">إزالة صلاحية المسؤول تُسهّل إزالة التطبيق وتزيل طبقة الحماية.</string>
     <string name="delay_cancel">تراجع</string>
@@ -225,7 +233,7 @@
     <string name="prayer_method">طريقة الحساب</string>
     <string name="prayer_morning">الصباح</string>
     <string name="prayer_none_today">لا مواقيت في هذا اليوم لهذا الموقع</string>
-    <string name="prayer_reminder_text">حان وقت الصلاة</string>
+    <string name="prayer_reminder_text">حان وقت الصلاة: %1$s</string>
     <string name="prayer_reminders">تنبيه الصلوات</string>
     <string name="prayer_repeat">التكرار: %1$d</string>
     <string name="prayer_subtitle">المواقيت تُحسب على الجهاز من موقعك</string>

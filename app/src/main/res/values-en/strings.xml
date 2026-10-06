@@ -34,6 +34,14 @@
     <string name="collapse">Hide</string>
     <string name="confirm">Confirm</string>
     <string name="content_unavailable">Content unavailable</string>
+    <string name="crash_body">The application did not finish opening last time. The text below comes from this device and was not sent anywhere. Copy it and send it to the developer so the cause can be fixed.</string>
+    <string name="crash_continue">Continue to the application</string>
+    <string name="crash_copied">Copied</string>
+    <string name="crash_copy">Copy the details</string>
+    <string name="crash_exception">Stopped on an error</string>
+    <string name="crash_interrupted">Stopped before the interface appeared</string>
+    <string name="crash_share">Send the details</string>
+    <string name="crash_title">Why the application stopped</string>
     <string name="delay_accessibility_off">Turning off the accessibility service brings short videos back and stops browser keyword blocking.</string>
     <string name="delay_admin_off">Removing the administrator makes uninstalling easier and removes one layer.</string>
     <string name="delay_cancel">Go back</string>
@@ -223,7 +231,7 @@
     <string name="prayer_method">Calculation method</string>
     <string name="prayer_morning">Morning</string>
     <string name="prayer_none_today">No times for this location today</string>
-    <string name="prayer_reminder_text">It is time for prayer</string>
+    <string name="prayer_reminder_text">It is time for %1$s</string>
     <string name="prayer_reminders">Prayer reminders</string>
     <string name="prayer_repeat">Repeat: %1$d</string>
     <string name="prayer_subtitle">Times are computed on the device from your location</string>
