@@ -3,6 +3,13 @@
 All notable changes to this project are recorded here. The format follows the usual
 sections: added, changed, fixed and removed.
 
+## 1.0.3 - 2026-10-06
+
+### Changed
+
+- The release page carries a single file, `Naqaa-<version>.apk`, which installs on 32-bit
+  and 64-bit phones. The smaller per-architecture builds remain in the workflow artifacts.
+
 ## 1.0.2 - 2026-10-06
 
 ### Changed
