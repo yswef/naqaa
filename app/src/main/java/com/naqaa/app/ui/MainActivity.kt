@@ -15,11 +15,14 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModelProvider
 import com.naqaa.app.NaqaaApplication
+import com.naqaa.app.data.Preferences
 import com.naqaa.app.ui.screens.AppShell
+import com.naqaa.app.ui.screens.CrashReportScreen
 import com.naqaa.app.ui.screens.Destination
 import com.naqaa.app.ui.screens.LockScreen
 import com.naqaa.app.ui.screens.OnboardingScreen
 import com.naqaa.app.ui.theme.NaqaaTheme
+import com.naqaa.app.util.CrashLog
 import com.naqaa.app.util.LocaleX
 
 /**
@@ -37,17 +40,39 @@ class MainActivity : ComponentActivity() {
     private var requestedScreen by mutableStateOf<Destination?>(null)
 
     override fun attachBaseContext(newBase: Context) {
-        super.attachBaseContext(LocaleX.localized(newBase, languageOf(newBase)))
+        // The chosen language lives in the encrypted settings; a failure to read them falls
+        // back to the device configuration instead of refusing to start.
+        super.attachBaseContext(runCatching { LocaleX.localized(newBase, languageOf(newBase)) }.getOrDefault(newBase))
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         window.setFlags(WindowManager.LayoutParams.FLAG_SECURE, WindowManager.LayoutParams.FLAG_SECURE)
-        val preferences = (application as NaqaaApplication).graph.current()
+
+        // Read before anything else touches the settings or the journal, so a failure that
+        // killed the previous start can still be shown on this one.
+        val pending = CrashLog.pending(this)
+        if (pending != null) {
+            setContent {
+                NaqaaTheme {
+                    CrashReportScreen(
+                        report = pending,
+                        onContinue = {
+                            CrashLog.clear(this@MainActivity)
+                            recreate()
+                        }
+                    )
+                }
+            }
+            return
+        }
+
+        val preferences = runCatching { (application as NaqaaApplication).graph.current() }.getOrDefault(Preferences())
         PersonaSwitch.apply(this, preferences.persona)
         requestedScreen = requested(intent)
         setContent {
             NaqaaTheme {
+                LaunchedEffect(Unit) { CrashLog.sessionComposed(this@MainActivity) }
                 val state by viewModel.state.collectAsState()
                 LaunchedEffect(state.preferences.persona) {
                     PersonaSwitch.apply(this@MainActivity, state.preferences.persona)
