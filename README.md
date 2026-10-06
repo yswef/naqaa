@@ -121,9 +121,10 @@ Samsung shows one bare sentence for several unrelated problems. Check in this or
    Protect scanning off temporarily in the Play Store settings.
 5. **Installation from this source is blocked.** Allow the browser or the file manager to
    install unknown applications in Android's application settings.
-6. **An older copy signed with another key is installed.** A build from an earlier tag
-   cannot update over it: uninstall the previous copy first, which also removes its
-   journal.
+6. **An older copy signed with another key is installed.** Every published file is signed
+   with a key that is created for its own build and not kept, so a newer version cannot
+   update over an older one: uninstall the previous copy first. Uninstalling removes the
+   journal, so share the weekly report from the report screen before removing it.
 
 The release notes carry the architecture list, the signature schemes and the sha256 of
 every file, so a report of what failed can name the exact file that was used.
@@ -180,7 +181,10 @@ sealed with AES-256-GCM under a key that never leaves the Android Keystore; pref
 are encrypted the same way and written atomically. The PIN is hashed with
 PBKDF2-HMAC-SHA256 and 310,000 iterations, cloud backup and device transfer are disabled
 in the manifest, screen capture is blocked with `FLAG_SECURE`, notifications are private,
-and the single destructive action asks twice. See [PRIVACY.md](PRIVACY.md).
+and the single destructive action asks twice. A failure that stops the application is
+written to a private file on the device and offered on the next start with a copy button and
+a send button; the application itself never sends it anywhere. See
+[PRIVACY.md](PRIVACY.md).
 
 ## Known limitations
 
@@ -199,6 +203,9 @@ and the single destructive action asks twice. See [PRIVACY.md](PRIVACY.md).
   moon-sighting decisions and mosque-specific offsets are not applied.
 - No high-latitude rule is invented: when the sun does not reach an angle, the time is
   left empty and the interface says so.
+- A version cannot be installed over the one before it, because each published file is
+  signed with a key created for that build and the key is not kept anywhere. Uninstalling
+  removes the journal, so keep a copy of the report before removing the application.
 - The application is distributed as an APK because store policies restrict accessibility
   services and VPN-based filtering.
 
