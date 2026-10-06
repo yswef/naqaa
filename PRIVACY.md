@@ -8,6 +8,10 @@ Journal payloads and preferences use AES-256-GCM with a 256-bit key in Android K
 
 Cloud backup and device transfer are excluded through Android backup rules. Manufacturer-specific behavior still needs testing. Losing the Keystore key makes existing encrypted records unreadable; the app does not silently reset them.
 
+## Failure text
+
+If the application stops, the details of that failure are written to a private file in the application's own directory: the version, the Android level, the processor list and the stack trace. Nothing from the journal, the reason, or the contact is included. The next start shows the text with a copy button and a share button, and deletes the file once the user continues. It is never uploaded by the application; sharing it is a decision the user makes, and the text should be read before it is sent anywhere.
+
 ## DNS traffic
 
 INTERNET is used by the local VPN to send allowed DNS queries through protected UDP sockets to a DNS server advertised by an underlying network. This is a real network disclosure: the resolver and potentially the network operator can observe requested domain names. DNS transport is not encrypted. No journal entries, PIN, contact number, or personal reason are included in these packets. No browsing history is intentionally stored.
