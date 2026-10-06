@@ -3,6 +3,30 @@
 All notable changes to this project are recorded here. The format follows the usual
 sections: added, changed, fixed and removed.
 
+## 1.0.1 - 2026-10-06
+
+### Added
+
+- A universal APK that carries both architectures, next to the two per-architecture files,
+  so a phone whose architecture cannot be determined still installs with one download.
+
+### Changed
+
+- The build verifies every release file with `apksigner` before publishing, refuses to
+  upload a file that is not signed, and writes the architecture and the certificate of each
+  file into the release notes.
+- The about section shows the version that is actually installed instead of a fixed text.
+
+### Fixed
+
+- Installation on 32-bit phones: those devices refuse the arm64 file with the bare message
+  "App not installed", which the install instructions now explain.
+
+### Removed
+
+- Release 1.0.0 was withdrawn: its arm64 file failed on 32-bit phones and its signing key
+  was not kept, so it could not be updated over either.
+
 ## 1.0.0 - 2026-10-06
 
 First release. Distributed as a per-ABI APK from the releases page.
