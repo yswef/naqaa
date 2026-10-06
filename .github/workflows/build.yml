@@ -205,16 +205,14 @@ jobs:
           path: app/build/outputs/apk/release/*.apk
           if-no-files-found: error
 
-      - name: Stage the release files
+      - name: Stage the release file
         run: |
           mkdir -p "$RUNNER_TEMP/dist"
           version="$(grep -m1 'versionName' app/build.gradle.kts | sed 's/.*"\(.*\)".*/\1/')"
-          cp app/build/outputs/apk/release/app-universal-release.apk \
-             "$RUNNER_TEMP/dist/Naqaa-$version-for-any-phone.apk"
-          cp app/build/outputs/apk/release/app-armeabi-v7a-release.apk \
-             "$RUNNER_TEMP/dist/Naqaa-$version-32bit-phones-only.apk"
-          cp app/build/outputs/apk/release/app-arm64-v8a-release.apk \
-             "$RUNNER_TEMP/dist/Naqaa-$version-64bit-phones-only.apk"
+          # One file in the release: the universal build carries both architectures, so
+          # nobody has to know which processor the phone has. The smaller per-architecture
+          # files stay in the run artifacts for whoever wants them.
+          cp app/build/outputs/apk/release/app-universal-release.apk "$RUNNER_TEMP/dist/Naqaa-$version.apk"
           ls -l "$RUNNER_TEMP/dist"
           echo "VERSION=$version" >> "$GITHUB_ENV"
 
@@ -230,24 +228,19 @@ jobs:
             : > "$RUNNER_TEMP/notes.md"
           fi
           {
-            printf '## أي ملف تنزّل؟\n\n'
-            printf 'نزّل الملف الأول: **Naqaa-%s-for-any-phone.apk**. يعمل على كل الهواتف، ٣٢-بت و٦٤-بت.\n\n' "$VERSION"
-            printf 'لا تنزّل ملف `64bit` إذا كان هاتفك ٣٢-بت (مثل جالاكسي A10): أندرويد يرفضه برسالة «التطبيق ليس مثبتا» بلا أي توضيح.\n\n'
-            printf '## Which file to install?\n\n'
-            printf 'Take the first one: **Naqaa-%s-for-any-phone.apk**. It carries both architectures.\n\n' "$VERSION"
-            printf -- '- `Naqaa-%s-32bit-phones-only.apk` is a smaller file for 32-bit phones, among them the Galaxy A10.\n' "$VERSION"
-            printf -- '- `Naqaa-%s-64bit-phones-only.apk` is a smaller file for 64-bit phones; a 32-bit phone refuses it.\n\n' "$VERSION"
-            printf 'Android 8.0 or newer. Every file below was checked with `apksigner` and `unzip`; the sha256 lets you confirm your download arrived complete.\n\n'
+            printf '## التنزيل\n\n'
+            printf 'ملف واحد فقط: **Naqaa-%s.apk**. يعمل على كل الهواتف، ٣٢-بت و٦٤-بت، فلا حاجة لمعرفة نوع معالج هاتفك.\n\n' "$VERSION"
+            printf 'أندرويد ٨٫٠ أو أحدث. الملف موقّع ومفحوص قبل النشر، وبصمة `sha256` أدناه تكشف أي تنزيل ناقص.\n\n'
+            printf '## Download\n\n'
+            printf 'One file: **Naqaa-%s.apk**, for 32-bit and 64-bit phones alike. Android 8.0 or newer.\n\n' "$VERSION"
+            printf 'Checked with `apksigner` and `unzip` before publishing; the sha256 below shows whether a download arrived complete. The build also produces smaller per-architecture files, and those stay in the workflow artifacts instead of this page.\n\n'
             cat "$RUNNER_TEMP/notes.md"
             cat CHANGELOG.md
             printf '\n## Build details\n\n```\n'
             cat "$RUNNER_TEMP/verify.txt"
             printf '```\n'
           } > "$RUNNER_TEMP/release-notes.md"
-          gh release create "${GITHUB_REF_NAME}" \
-            "$RUNNER_TEMP/dist/Naqaa-$VERSION-for-any-phone.apk" \
-            "$RUNNER_TEMP/dist/Naqaa-$VERSION-32bit-phones-only.apk" \
-            "$RUNNER_TEMP/dist/Naqaa-$VERSION-64bit-phones-only.apk" \
+          gh release create "${GITHUB_REF_NAME}" "$RUNNER_TEMP/dist/Naqaa-$VERSION.apk" \
             --repo "$GITHUB_REPOSITORY" \
             --title "Naqaa ${GITHUB_REF_NAME}" \
             --notes-file "$RUNNER_TEMP/release-notes.md"
