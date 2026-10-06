@@ -14,6 +14,7 @@ import com.naqaa.app.guard.LockWindow
 import com.naqaa.app.guard.NightMode
 import com.naqaa.app.prayer.PrayerCalculator
 import com.naqaa.app.ui.Overlays
+import com.naqaa.app.util.CrashLog
 import com.naqaa.app.util.TimeX
 import java.time.Instant
 import java.time.ZoneId
@@ -40,11 +41,17 @@ class GuardAccessibilityService : AccessibilityService() {
 
     override fun onServiceConnected() {
         super.onServiceConnected()
-        loadRules()
+        runCatching { loadRules() }.onFailure { CrashLog.note(this, "accessibility connect", it) }
     }
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
-        val event = event ?: return
+        val value = event ?: return
+        // An uncaught failure in this callback makes the system restart the service a few
+        // times and then switch it off, so the failure is recorded and the event is dropped.
+        runCatching { handle(value) }.onFailure { CrashLog.note(this, "accessibility event", it) }
+    }
+
+    private fun handle(event: AccessibilityEvent) {
         if (event.eventType !in WATCHED_EVENTS) return
         val packageName = event.packageName?.toString() ?: return
         if (packageName == this.packageName) return
