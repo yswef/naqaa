@@ -124,8 +124,10 @@ jobs:
             unzip -t "$apk" > /dev/null 2>&1 || integrity=damaged
             badging="$("$build_tools/aapt2" dump badging "$apk" 2>/dev/null \
               | grep -m1 -E "^package:" | sed 's/^package: //')"
+            # Build tools name the field differently between versions: older ones print
+            # sdkVersion, newer ones minSdkVersion, so both spellings are taken.
             sdks="$("$build_tools/aapt2" dump badging "$apk" 2>/dev/null \
-              | grep -E "sdkVersion" | paste -sd' ' -)"
+              | grep -oE "(min|target)?[sS]dkVersion:'[0-9]+'" | paste -sd' ' -)"
             if "$build_tools/apksigner" verify --verbose --print-certs "$apk" > "$RUNNER_TEMP/signer.txt" 2>&1; then
               cert="$(grep -m1 -i 'SHA-256 digest' "$RUNNER_TEMP/signer.txt" | sed 's/^.*digest: *//')"
               schemes="$(grep -ci 'Verified using v[0-9].*scheme.*: true' "$RUNNER_TEMP/signer.txt")"
