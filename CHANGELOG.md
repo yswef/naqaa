@@ -3,6 +3,32 @@
 All notable changes to this project are recorded here. The format follows the usual
 sections: added, changed, fixed and removed.
 
+## 1.0.4 - 2026-10-06
+
+### Added
+
+- A screen that shows why the application stopped the time before. The text is written on
+  the device, offered with copy and send buttons, and deleted once it has been read; nothing
+  is uploaded anywhere.
+- A check in the build that compares every formatted string with the call that formats it,
+  so a missing placeholder cannot reach a release again.
+
+### Fixed
+
+- The prayer reminder asked for a value that the Arabic and English texts did not have,
+  which stopped the process the first time a reminder was due.
+- The weekly report screen printed the placeholder of the count inside the sentence instead
+  of the count itself.
+
+### Changed
+
+- A failure inside the accessibility service, or while drawing the home screen widget, is
+  recorded and the event is dropped, instead of letting the system restart the component
+  until it is switched off.
+- A failed read of the encrypted settings no longer prevents the interface from starting;
+  the application opens with default settings and reports the failure on the next start.
+- Switching the launcher entry no longer writes to the package manager when nothing changed.
+
 ## 1.0.3 - 2026-10-06
 
 ### Changed
