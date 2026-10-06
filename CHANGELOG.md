@@ -16,8 +16,8 @@ sections: added, changed, fixed and removed.
 
 - Release files carry names that say who they are for, and the universal file is listed
   first: `for-any-phone`, `32bit-phones-only`, `64bit-phones-only`.
-- Every release file is signed with the JAR scheme as well as the v2 and v3 schemes, which
-  the installers on some vendor builds still require.
+- The build asks for all three signing schemes, and the release notes list the schemes that
+  were applied to each file together with its certificate.
 - The release notes list the architectures, the signature schemes and the sha256 of each
   file, and the install instructions walk through the causes of "App not installed".
 
