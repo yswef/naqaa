@@ -90,9 +90,9 @@ Android 8.0 or newer. On the [releases page](https://github.com/yswef/naqaa/rele
 
 | File | For |
 | --- | --- |
-| `app-universal-release.apk` | Any phone. Take this one when unsure: it carries both architectures. |
-| `app-arm64-v8a-release.apk` | 64-bit phones (most devices from 2018 onwards). Smaller download. |
-| `app-armeabi-v7a-release.apk` | 32-bit phones, among them the Galaxy A10 and its generation. Smaller download. |
+| `Naqaa-<version>-for-any-phone.apk` | Every phone, 32-bit and 64-bit alike. Take this one when unsure. |
+| `Naqaa-<version>-32bit-phones-only.apk` | 32-bit phones, among them the Galaxy A10 and its generation. Smaller download. |
+| `Naqaa-<version>-64bit-phones-only.apk` | 64-bit phones, most devices from 2018 onwards. Smaller download. |
 
 1. Download the file, open it, and allow installation from this source when Android asks.
 2. Finish the setup walk: language, reason, city and method, location, permissions,
@@ -105,16 +105,26 @@ Android 8.0 or newer. On the [releases page](https://github.com/yswef/naqaa/rele
 
 ### When Android says "App not installed"
 
-- **The file does not match the phone.** An arm64 file is refused by a 32-bit phone, and
-  that message is all Android shows. Use the universal file, or the `armeabi-v7a` one on a
-  32-bit device.
-- **The download is incomplete.** Compare the size with the release page; a partial file is
-  refused without further explanation.
-- **An older copy signed with another key is installed.** This release is signed with a key
-  that is not kept in the repository, so a build from an earlier tag cannot be updated over
-  it: uninstall the previous copy first, which also removes its journal.
-- **Installation from this source is blocked.** Allow the browser or the file manager to
-  install unknown applications in Android's application settings.
+Samsung shows one bare sentence for several unrelated problems. Check in this order:
+
+1. **Wrong file for the phone.** A `64bit` file installs only on a 64-bit phone; a 32-bit
+   phone (Galaxy A10, A20, J-series of that generation) refuses it with exactly this
+   message. Download the `for-any-phone` file.
+2. **Incomplete download.** Compare the byte size, or the sha256 listed in the release
+   notes, with the file on the phone; a truncated file is refused without explanation.
+   Download it again over a stable connection, or from a computer and copy it over.
+3. **No free space.** The installer needs the file size again in free storage. Clear a few
+   hundred megabytes and retry.
+4. **Blocked by Play Protect.** The dialog offers *Install anyway*; choose it, or turn Play
+   Protect scanning off temporarily in the Play Store settings.
+5. **Installation from this source is blocked.** Allow the browser or the file manager to
+   install unknown applications in Android's application settings.
+6. **An older copy signed with another key is installed.** A build from an earlier tag
+   cannot update over it: uninstall the previous copy first, which also removes its
+   journal.
+
+The release notes carry the architecture list, the signature schemes and the sha256 of
+every file, so a report of what failed can name the exact file that was used.
 
 ## Build
 
