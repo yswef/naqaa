@@ -87,17 +87,25 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
 
     fun refresh() {
         viewModelScope.launch {
-            mutable.value = withContext(Dispatchers.Default) { build(mutable.value.logCount, mutable.value.encouragement) }
+            // A read that fails keeps the previous state on screen rather than ending the
+            // process: the journal is still on disk and the next refresh can succeed.
+            runCatching {
+                mutable.value = withContext(Dispatchers.Default) {
+                    build(mutable.value.logCount, mutable.value.encouragement)
+                }
+            }
         }
     }
 
     fun update(transform: (Preferences) -> Preferences) {
         val updated = graph.update(transform)
         viewModelScope.launch {
-            withContext(Dispatchers.Default) {
-                PrayerAlarms.schedule(app, updated)
-                Reminders.schedule(app, updated)
-                mutable.value = build(mutable.value.logCount, mutable.value.encouragement)
+            runCatching {
+                withContext(Dispatchers.Default) {
+                    PrayerAlarms.schedule(app, updated)
+                    Reminders.schedule(app, updated)
+                    mutable.value = build(mutable.value.logCount, mutable.value.encouragement)
+                }
             }
         }
     }
@@ -108,7 +116,11 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     fun log(kind: EventKind, trigger: String = "", place: String = "", feeling: String = "", note: String = "") {
         graph.record(kind, trigger, place, feeling, note)
         viewModelScope.launch {
-            mutable.value = withContext(Dispatchers.Default) { build(mutable.value.logCount + 1, mutable.value.encouragement) }
+            runCatching {
+                mutable.value = withContext(Dispatchers.Default) {
+                    build(mutable.value.logCount + 1, mutable.value.encouragement)
+                }
+            }
         }
     }
 
