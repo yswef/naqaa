@@ -53,9 +53,9 @@ fun ReportScreen(viewModel: AppViewModel, state: UiState) {
         SectionCard(title = stringResource(R.string.report_risk)) {
             StatLine(stringResource(R.string.report_risk), ReportText.risk(context, report.risk))
             StatLine(stringResource(R.string.report_score), report.score.toString())
-            StatLine(stringResource(R.string.report_streak), report.streak.current.toString())
-            StatLine(stringResource(R.string.report_best_streak), report.streak.best.toString())
-            StatLine(stringResource(R.string.report_clean_days), report.streak.cleanDays.toString())
+            ValueLine(stringResource(R.string.report_streak, report.streak.current.toString()))
+            ValueLine(stringResource(R.string.report_best_streak, report.streak.best.toString()))
+            ValueLine(stringResource(R.string.report_clean_days, report.streak.cleanDays.toString()))
             StatLine(stringResource(R.string.progress_points), report.points.toString())
         }
 
@@ -71,27 +71,24 @@ fun ReportScreen(viewModel: AppViewModel, state: UiState) {
             StatLine(stringResource(R.string.report_logged), report.week.logged.toString())
             val hour = report.week.riskiestHour()
             if (hour != null) {
-                StatLine(
-                    stringResource(R.string.report_riskiest_hour),
-                    TimeX.clock(hour * 60, display)
-                )
+                ValueLine(stringResource(R.string.report_riskiest_hour, TimeX.clock(hour * 60, display)))
             }
             report.week.topTrigger()?.let {
-                StatLine(stringResource(R.string.report_riskiest_trigger), ReportText.trigger(context, it))
+                ValueLine(stringResource(R.string.report_riskiest_trigger, ReportText.trigger(context, it)))
             }
             report.week.topPlace()?.let {
-                StatLine(stringResource(R.string.report_riskiest_place), ReportText.place(context, it))
+                ValueLine(stringResource(R.string.report_riskiest_place, ReportText.place(context, it)))
             }
             report.week.topFeeling()?.let {
-                StatLine(stringResource(R.string.report_riskiest_feeling), ReportText.feeling(context, it))
+                ValueLine(stringResource(R.string.report_riskiest_feeling, ReportText.feeling(context, it)))
             }
         }
 
         SectionCard(title = stringResource(R.string.report_adherence)) {
-            StatLine(stringResource(R.string.report_prayer_days), report.week.prayerDays.toString())
-            StatLine(stringResource(R.string.report_adhkar_days), report.week.adhkarDays.toString())
-            StatLine(stringResource(R.string.report_quran_days), report.week.quranDays.toString())
-            StatLine(stringResource(R.string.report_plan_days), report.week.planDays.toString())
+            ValueLine(stringResource(R.string.report_prayer_days, report.week.prayerDays.toString()))
+            ValueLine(stringResource(R.string.report_adhkar_days, report.week.adhkarDays.toString()))
+            ValueLine(stringResource(R.string.report_quran_days, report.week.quranDays.toString()))
+            ValueLine(stringResource(R.string.report_plan_days, report.week.planDays.toString()))
         }
 
         SectionCard(title = stringResource(R.string.report_recommendations)) {
