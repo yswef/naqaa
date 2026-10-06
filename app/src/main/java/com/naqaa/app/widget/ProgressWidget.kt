@@ -36,7 +36,14 @@ class ProgressWidget : AppWidgetProvider() {
 
     companion object {
 
-        private val executor = Executors.newSingleThreadExecutor()
+        /**
+         * A failure while drawing the widget must not take the process down: the counter is
+         * decoration, and a phone that loses its widget is far better than one that loses
+         * the journal. The thread therefore swallows what it cannot do.
+         */
+        private val executor = Executors.newSingleThreadExecutor { runnable ->
+            Thread(runnable, "naqaa-widget").apply { setUncaughtExceptionHandler { _, _ -> } }
+        }
 
         /** Redraws every placed widget. Called after any change to the journal. */
         fun refresh(context: Context) {
@@ -46,7 +53,7 @@ class ProgressWidget : AppWidgetProvider() {
             executor.execute { render(context.applicationContext, manager, ids) }
         }
 
-        private fun render(context: Context, manager: AppWidgetManager, ids: IntArray) {
+        private fun render(context: Context, manager: AppWidgetManager, ids: IntArray) = runCatching {
             val localized = LocaleX.localized(context)
             val graph = (context.applicationContext as NaqaaApplication).graph
             val count = runCatching {
