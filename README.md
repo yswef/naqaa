@@ -90,9 +90,11 @@ Android 8.0 or newer. On the [releases page](https://github.com/yswef/naqaa/rele
 
 | File | For |
 | --- | --- |
-| `Naqaa-<version>-for-any-phone.apk` | Every phone, 32-bit and 64-bit alike. Take this one when unsure. |
-| `Naqaa-<version>-32bit-phones-only.apk` | 32-bit phones, among them the Galaxy A10 and its generation. Smaller download. |
-| `Naqaa-<version>-64bit-phones-only.apk` | 64-bit phones, most devices from 2018 onwards. Smaller download. |
+| `Naqaa-<version>.apk` | Every phone, 32-bit and 64-bit alike. It is the only file on the release page. |
+
+The build still produces per-architecture APKs (about 1.5 MB each, one for arm64-v8a and
+one for armeabi-v7a); they stay in the workflow artifacts so the release page keeps a
+single, unambiguous download.
 
 1. Download the file, open it, and allow installation from this source when Android asks.
 2. Finish the setup walk: language, reason, city and method, location, permissions,
@@ -107,9 +109,9 @@ Android 8.0 or newer. On the [releases page](https://github.com/yswef/naqaa/rele
 
 Samsung shows one bare sentence for several unrelated problems. Check in this order:
 
-1. **Wrong file for the phone.** A `64bit` file installs only on a 64-bit phone; a 32-bit
-   phone (Galaxy A10, A20, J-series of that generation) refuses it with exactly this
-   message. Download the `for-any-phone` file.
+1. **A per-architecture file on the wrong phone.** If you built the project yourself and
+   installed the arm64-v8a output, a 32-bit phone (Galaxy A10, A20, J-series of that
+   generation) refuses it with exactly this message. Take the universal output instead.
 2. **Incomplete download.** Compare the byte size, or the sha256 listed in the release
    notes, with the file on the phone; a truncated file is refused without explanation.
    Download it again over a stable connection, or from a computer and copy it over.
