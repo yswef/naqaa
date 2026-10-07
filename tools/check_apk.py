@@ -27,6 +27,23 @@ COMPONENTS = (
     'Lcom/naqaa/app/guard/BootReceiver;',
 )
 
+# The files the application reads while it runs. A build that drops one of them produces a
+# file that installs and then fails quietly, so each one is required here.
+REQUIRED = (
+    'resources.arsc',
+    'assets/accessibility-rules.json',
+    'assets/content/verses.json',
+    'assets/content/hadiths.json',
+    'assets/content/adhkar.json',
+    'assets/content/motivation.json',
+    'assets/content/plan.json',
+    'res/raw/adhan.ogg',
+)
+
+# The packaging tool stores a gzip asset under its name without the suffix, so either name
+# counts as the catalogue.
+BLOCKLIST = ('assets/blocked-domains.txt', 'assets/blocked-domains.txt.gz')
+
 CODE = 'code'
 TABLE = 'resource table'
 ASSETS = 'assets'
@@ -79,6 +96,10 @@ def main():
                 payload.append((entry.filename, entry.file_size))
 
     missing = [name for name in COMPONENTS if name.encode() not in code]
+    names = {entry.filename for entry in entries}
+    missing += [name for name in REQUIRED if name not in names]
+    if not any(name in names for name in BLOCKLIST):
+        missing.append('the blocked list')
     print(f'  contents: {len(entries)} entries, {human(sum(sizes.values()))} unpacked')
     for group, size in sorted(sizes.items(), key=lambda item: -item[1]):
         detail = f', {classes} classes' if group == CODE else ''
@@ -88,7 +109,7 @@ def main():
     if len(payload) > LISTED:
         print(f'      and {len(payload) - LISTED} more file(s)')
     if missing:
-        print(f'  components missing: {", ".join(missing)}')
+        print(f'  missing: {", ".join(missing)}')
         return 1
     print('  components: present')
     return 0
