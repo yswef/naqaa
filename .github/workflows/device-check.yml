@@ -16,6 +16,13 @@ on:
         description: Release tag whose file is tested, or "build" to use the current sources
         type: string
         default: v1.0.7
+  # A push to this file checks the check itself; the event below is for tooling that cannot
+  # use the manual dispatch.
+  push:
+    paths:
+      - '.github/workflows/device-check.yml'
+  repository_dispatch:
+    types: [device-check]
 
 permissions:
   contents: read
@@ -41,7 +48,7 @@ jobs:
       - name: Fetch the file under test
         env:
           GH_TOKEN: ${{ github.token }}
-          ASSET: ${{ inputs.asset }}
+          ASSET: ${{ github.event.inputs.asset || github.event.client_payload.asset || 'v1.0.7' }}
         run: |
           mkdir -p under-test
           if [ "$ASSET" = "build" ]; then
@@ -60,7 +67,7 @@ jobs:
       - name: Run the application and collect what the device wrote
         uses: reactivecircus/android-emulator-runner@v2
         with:
-          api-level: ${{ inputs.api_level }}
+          api-level: ${{ github.event.inputs.api_level || github.event.client_payload.api_level || '28' }}
           target: default
           arch: x86_64
           force-avd-creation: true
