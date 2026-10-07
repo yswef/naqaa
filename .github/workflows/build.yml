@@ -116,6 +116,8 @@ jobs:
           report="$RUNNER_TEMP/verify.txt"
           : > "$report"
           unsigned=0
+          incomplete=0
+          blockers=0
           for apk in app/build/outputs/apk/release/*.apk; do
             name="$(basename "$apk")"
             size="$(stat -c%s "$apk")"
@@ -148,6 +150,15 @@ jobs:
             printf '%s\n' "  schemes reported by apksigner:" >> "$report"
             grep -i 'Verified using' "$RUNNER_TEMP/signer.txt" | sed 's/^/    /' >> "$report"
             printf '%s\n' "  $badging" >> "$report"
+            # What is inside the file, so a download is judged by its contents rather than
+            # by its size.
+            python3 tools/check_apk.py "$apk" >> "$report" || incomplete=1
+            # A debug or test attribute makes the installer refuse the file with a bare
+            # message, so it is read out of the merged manifest and reported.
+            file_blockers="$("$build_tools/aapt2" dump xmltree "$apk" --file AndroidManifest.xml 2>/dev/null \
+              | grep -E 'android:(debuggable|testOnly)' | grep -c '0xffffffff' || true)"
+            blockers=$((blockers + file_blockers))
+            printf '%s\n' "  install blockers: $([ "$file_blockers" = "0" ] && echo none || echo debug-or-test-attribute)" >> "$report"
             printf '%s\n' "  sha256 of the file: $digest" >> "$report"
             printf '%s\n\n' "" >> "$report"
           done
@@ -161,6 +172,14 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
           if [ "$unsigned" -ne 0 ]; then
             echo "::error ::a release file is not signed and cannot be installed"
+            exit 1
+          fi
+          if [ "$blockers" -ne 0 ]; then
+            echo "::error ::the release file carries a debug or test attribute and will not install"
+            exit 1
+          fi
+          if [ "$incomplete" -ne 0 ]; then
+            echo "::error ::a release file is missing part of the application and cannot work"
             exit 1
           fi
 
@@ -242,6 +261,8 @@ jobs:
             printf 'The file is about 1.6 MB. If Android refuses it, note the exact message and the file name and size shown on the phone.\n\n'
             printf 'If an older version is installed, remove it first: each release is signed with its own key, so Android will not install this file over an older one.\n\n'
             printf 'Checked with `apksigner` and `unzip` before publishing; the sha256 below shows whether a download arrived complete. The build also produces smaller per-architecture files, and those stay in the workflow artifacts instead of this page.\n\n'
+            printf 'صِغر الحجم طبيعي: التطبيق لا يحمل صورا ولا إعلانات ولا مكتبات اتصال، والأيقونات والرسوم بصيغة vector، وقائمة الحجب مضغوطة، وكل جزء من المكتبات لا يستدعيه التطبيق يُحذف عند البناء. و«فحص المحتوى» أدناه يعرض ما داخل الملف: عدد مدخلاته، وحجم الكود والموارد والأصول والصوت بعد فك الضغط، وعدد الأصناف البرمجية، وتأكيد وجود كل مكوّن مذكور في البيان.\n\n'
+            printf 'The small size is expected: the application carries no images, no advertising and no network libraries, the icons and drawings are vectors, the blocked list is compressed, and the build removes every part of the libraries that the application never calls. The content check below lists what is inside the file: its entries, the unpacked size of the code, the resources, the assets and the sound, how many classes it holds, and that every component named in the manifest is there.\n\n'
             cat "$RUNNER_TEMP/notes.md"
             cat CHANGELOG.md
             printf '\n## Build details\n\n```\n'
