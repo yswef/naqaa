@@ -107,7 +107,17 @@ jobs:
         continue-on-error: true
         run: |
           set -o pipefail
-          ./gradlew --no-daemon --stacktrace assembleRelease 2>&1 | tee assemble.log
+          status=0
+          ./gradlew --no-daemon --stacktrace assembleRelease 2>&1 | tee assemble.log || status=$?
+          # The result of the build and the files it left behind are repeated as annotations,
+          # where they can be read without opening the log of the run.
+          echo "::notice ::gradle status $status"
+          echo "::notice ::folders: $(find app/build/outputs -maxdepth 3 -type d 2>/dev/null | paste -sd, -)"
+          echo "::notice ::files: $(find app/build/outputs -name '*.apk' 2>/dev/null | paste -sd, -)"
+          echo "::notice ::last lines: $(tail -3 assemble.log | tr '\n' '|' | head -c 300)"
+          if [ "$status" -ne 0 ]; then
+            echo "::error ::the build failed: $(grep -hE '^e: |error: |Execution failed|FAILED|Caused by|What went wrong' assemble.log | head -3 | tr '\n' '|' | head -c 400)"
+          fi
 
       - name: Verify the release build
         id: verify
@@ -120,7 +130,13 @@ jobs:
           unsigned=0
           incomplete=0
           blockers=0
-          for apk in app/build/outputs/apk/release/*.apk; do
+          mapfile -t apks < <(find app/build/outputs/apk/release -maxdepth 1 -name '*.apk' | sort)
+          if [ "${#apks[@]}" -eq 0 ]; then
+            echo "::error ::the build left no release file: $(ls -l app/build/outputs/apk/release 2>&1 | tr '\n' ' ' | head -c 400)"
+            exit 1
+          fi
+          echo "::notice ::inspecting ${#apks[@]} release file(s): $(printf '%s ' "${apks[@]##*/}")" 
+          for apk in "${apks[@]}"; do
             name="$(basename "$apk")"
             size="$(stat -c%s "$apk")"
             abis="$(unzip -l "$apk" | awk '{print $4}' | grep -oE '^lib/[^/]+/' | sort -u | sed 's|^lib/||; s|/$||' | paste -sd, -)"
@@ -214,7 +230,12 @@ jobs:
 
       - name: Stop when a build step failed
         if: steps.tests.outcome == 'failure' || steps.assemble.outcome == 'failure'
-        run: exit 1
+        run: |
+          # A build that fails says why in its log, which is long; the first useful lines are
+          # repeated as annotations so that they can be read without opening the run.
+          grep -hE "^e: |error: |Execution failed|FAILED|Caused by|What went wrong" assemble.log unit-tests.log 2>/dev/null \
+            | head -5 | while read -r line; do echo "::error ::$line"; done
+          exit 1
 
       - name: Report the release size
         run: |
