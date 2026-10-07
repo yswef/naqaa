@@ -3,6 +3,16 @@
 All notable changes to this project are recorded here. The format follows the usual
 sections: added, changed, fixed and removed.
 
+## 1.0.7 - 2026-10-07
+
+### Fixed
+
+- The reminder chime was never heard: the bundled sound was named nowhere in the code, so
+  the build removed it as an unused resource. The prayer reminder now posts to its own
+  channel, which carries the chime, and the resource is mentioned in the code so that it
+  stays in the file. The other reminders keep the system sound, and a blocked attempt stays
+  silent while the phone is being used.
+
 ## 1.0.6 - 2026-10-07
 
 ### Fixed
