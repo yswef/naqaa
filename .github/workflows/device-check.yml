@@ -1,0 +1,135 @@
+name: device check
+
+# Runs the published file on an emulator of the chosen Android level and keeps what the
+# device wrote. This is the only way to see a failure that happens on a phone and nowhere
+# else: the emulator reports the same trace that the phone would, and the report is kept as
+# an artifact so a crash can be read without asking anyone to copy it by hand.
+
+on:
+  workflow_dispatch:
+    inputs:
+      api_level:
+        description: Android level to run the application on
+        type: string
+        default: '28'
+      asset:
+        description: Release tag whose file is tested, or "build" to use the current sources
+        type: string
+        default: v1.0.7
+
+permissions:
+  contents: read
+
+jobs:
+  run:
+    name: Run on the emulator
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v7
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up the Android SDK
+        uses: android-actions/setup-android@v4
+
+      - name: Fetch the file under test
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ASSET: ${{ inputs.asset }}
+        run: |
+          mkdir -p under-test
+          if [ "$ASSET" = "build" ]; then
+            echo "::notice ::building the file from the current sources"
+            ./gradlew --no-daemon assembleDebug
+            cp app/build/outputs/apk/debug/*.apk under-test/Naqaa.apk
+          else
+            echo "::notice ::downloading the published file of $ASSET"
+            gh release download "$ASSET" -p '*.apk' -D under-test
+            single="$(ls under-test/*.apk | head -1)"
+            mv "$single" under-test/Naqaa.apk
+          fi
+          ls -l under-test
+          sha256sum under-test/Naqaa.apk | tee under-test/sha256.txt
+
+      - name: Run the application and collect what the device wrote
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: ${{ inputs.api_level }}
+          target: default
+          arch: x86_64
+          force-avd-creation: true
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -no-snapshot -memory 2048
+          script: |
+            set -x
+            adb shell getprop ro.build.version.sdk | tee device-android.txt
+            adb shell getprop ro.product.cpu.abilist | tee device-abis.txt
+            adb install -r under-test/Naqaa.apk 2>&1 | tee device-install.txt
+            adb shell dumpsys package com.naqaa.app | grep -E "versionName|versionCode|firstInstallTime" | tee device-package.txt
+            adb logcat -c
+
+            # The launcher entry is what a tap on the icon starts, so it is tried first.
+            adb shell monkey -p com.naqaa.app -c android.intent.category.LAUNCHER 1 2>&1 | tee device-launch-1.txt
+            sleep 25
+            echo "--- process after the first launch:" | tee device-process.txt
+            adb shell pidof com.naqaa.app >> device-process.txt || echo "not running" >> device-process.txt
+            adb logcat -d > device-log-1.txt
+            adb logcat -d -b crash > device-crash-1.txt
+            adb exec-out screencap -p > device-screen-1.png
+
+            # A second launch shows the failure text that the first one left behind.
+            adb shell am start -n com.naqaa.app/.ui.MainActivity 2>&1 | tee device-launch-2.txt
+            sleep 12
+            echo "--- process after the second launch:" | tee -a device-process.txt
+            adb shell pidof com.naqaa.app >> device-process.txt || echo "not running" >> device-process.txt
+            adb logcat -d -b crash > device-crash-2.txt
+            adb exec-out screencap -p > device-screen-2.png
+            adb shell dumpsys activity activities | grep -i -A3 naqaa | head -40 > device-activity.txt
+            adb shell run-as com.naqaa.app ls -l files 2>&1 | tee device-files.txt
+            adb shell run-as com.naqaa.app cat files/last-error.txt 2>&1 | tee device-last-error.txt
+            adb shell run-as com.naqaa.app cat files/last-launch.txt 2>&1 | tee device-last-launch.txt
+            exit 0
+
+      - name: Explain what the device reported
+        if: always()
+        run: |
+          {
+            echo "### Device check"
+            echo
+            echo '```'
+            echo "install: $(cat device-install.txt 2>/dev/null | tail -2 | tr '\n' ' ')"
+            echo "package: $(cat device-package.txt 2>/dev/null | tr '\n' ' ')"
+            echo "process: $(cat device-process.txt 2>/dev/null | tr '\n' ' ')"
+            echo
+            echo "--- crash buffer after the first launch"
+            tail -c 4000 device-crash-1.txt 2>/dev/null || echo "empty"
+            echo
+            echo "--- crash buffer after the second launch"
+            tail -c 4000 device-crash-2.txt 2>/dev/null || echo "empty"
+            echo
+            echo "--- the failure text the application wrote"
+            head -c 2000 device-last-error.txt 2>/dev/null
+            head -c 2000 device-last-launch.txt 2>/dev/null
+            echo
+            echo "--- lines that mention the application"
+            grep -iE "naqaa|AndroidRuntime|FATAL|E ActivityManager" device-log-1.txt 2>/dev/null | tail -60
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+          cat "$GITHUB_STEP_SUMMARY" | tail -80
+
+      - name: Keep the report
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: device-check-report
+          path: |
+            device-*.txt
+            device-screen-*.png
+            under-test/sha256.txt
+          if-no-files-found: warn
