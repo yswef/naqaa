@@ -1,5 +1,8 @@
 package com.naqaa.app.vpn
 
+import android.content.res.AssetManager
+import java.io.BufferedInputStream
+import java.io.FileNotFoundException
 import java.io.InputStream
 import java.util.Locale
 import java.util.zip.GZIPInputStream
@@ -64,8 +67,39 @@ class DomainBlocklist private constructor(
 
     companion object {
 
-        fun fromCompressed(stream: InputStream): DomainBlocklist =
-            GZIPInputStream(stream).bufferedReader().use { reader -> fromLines(reader.readLines().asSequence()) }
+        /**
+         * Reads the catalogue from wherever the build put it. A packaging tool expands a
+         * gzip asset and drops the suffix from the name it is stored under, so the stream is
+         * recognised by its magic bytes instead of by the name it arrived under: a filter
+         * that starts without its list blocks nothing, and it would do so silently.
+         */
+        fun fromAsset(assets: AssetManager): DomainBlocklist {
+            ASSET_NAMES.forEach { name ->
+                val stream = runCatching { assets.open(name) }.getOrNull() ?: return@forEach
+                return stream.use { fromStream(it) }
+            }
+            throw FileNotFoundException(ASSET_NAMES.joinToString(prefix = "none of ", separator = ", "))
+        }
+
+        /** Accepts the compressed catalogue and the plain text one alike. */
+        fun fromStream(stream: InputStream): DomainBlocklist {
+            val buffered = BufferedInputStream(stream)
+            val body = if (isCompressed(buffered)) GZIPInputStream(buffered) else buffered
+            // The lines are consumed one at a time: the catalogue holds tens of thousands
+            // of names, and the reader keeps only what it needs before the byte table is built.
+            return body.bufferedReader().use { reader -> fromLines(reader.lineSequence()) }
+        }
+
+        private fun isCompressed(stream: BufferedInputStream): Boolean {
+            stream.mark(MAGIC.size)
+            val head = ByteArray(MAGIC.size)
+            val read = stream.read(head)
+            stream.reset()
+            return read == MAGIC.size && head.contentEquals(MAGIC)
+        }
+
+        private val MAGIC = byteArrayOf(0x1F, 0x8B.toByte())
+        private val ASSET_NAMES = listOf("blocked-domains.txt", "blocked-domains.txt.gz")
 
         fun fromLines(lines: Sequence<String>): DomainBlocklist {
             val ordered = lines.asSequence()
