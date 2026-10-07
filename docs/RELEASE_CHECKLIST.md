@@ -17,6 +17,9 @@
 
 - [ ] Run `./gradlew testDebugUnitTest lintDebug assembleRelease` and read the output.
 - [ ] Confirm that every release APK stays under 6 MB.
+- [ ] Read the content check of each file: the entry count, the unpacked size of the code,
+      the resources, the assets and the sound, the class count, and that the components
+      named in the manifest are present.
 - [ ] Add the signing secrets to the repository (see below) so the published APK is
       signed, or publish the unsigned artifact and say so in the release notes.
 - [ ] Walk through the device checks in `docs/BLOCKING.md` on a physical phone, including
@@ -37,6 +40,16 @@ variables `NAQAA_STORE_FILE`, `NAQAA_STORE_PASSWORD`, `NAQAA_KEY_ALIAS` and
 manual dispatch inputs, where the keystore is passed as base64 and never written to the
 repository. Without them the build still produces APKs, but they are unsigned and Android
 refuses to install them except as a debug-style side load.
+
+A key that lasts is worth the trouble: Android refuses to install a file whose certificate
+differs from the installed copy, so a key made for one run means the user must uninstall the
+previous version, and an uninstall deletes the journal. Create one keystore with `keytool
+-genkeypair` on a computer, then add its four values as repository secrets
+(`NAQAA_STORE_BASE64`, `NAQAA_STORE_PASSWORD`, `NAQAA_KEY_ALIAS`, `NAQAA_KEY_PASSWORD`);
+every later release is then signed with the same identity, and updates install over the
+copy that is already on the phone. Read the secrets into the workflow inputs before a
+release run. Keep a copy of the keystore file itself: without it the identity cannot be
+reproduced, and the application cannot be updated in place again.
 
 ## After publishing
 
