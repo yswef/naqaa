@@ -212,22 +212,22 @@ jobs:
 
       - name: Report the failure
         if: steps.tests.outcome == 'failure' || steps.assemble.outcome == 'failure'
-        env:
-          GH_TOKEN: ${{ github.token }}
-          RUN_ID: ${{ github.run_id }}
         run: |
+          # The run keeps its own report: an issue opened for every failed run piles up in
+          # the tracker, and the same text is easier to read next to the log it came from.
           grep -hE "^(e|w): |error: |Execution failed|FAILED|Caused by" unit-tests.log assemble.log 2>/dev/null \
             | head -20 | awk '{print "::error ::" $0}'
           {
-            echo "Run $RUN_ID on ${{ github.ref_name }}"
+            echo "### Run ${{ github.run_id }} on ${{ github.ref_name }}"
             echo
+            echo '```'
             echo "----- assembleRelease -----"
-            tail -c 60000 assemble.log
+            tail -c 20000 assemble.log
             echo
             echo "----- unit tests -----"
-            tail -c 40000 unit-tests.log
-          } > failure.txt
-          gh issue create --repo "$GITHUB_REPOSITORY" --title "build failure $RUN_ID" --body-file failure.txt
+            tail -c 10000 unit-tests.log
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Stop when a build step failed
         if: steps.tests.outcome == 'failure' || steps.assemble.outcome == 'failure'
