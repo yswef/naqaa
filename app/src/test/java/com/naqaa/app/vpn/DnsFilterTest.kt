@@ -1,5 +1,7 @@
 package com.naqaa.app.vpn
 
+import java.io.ByteArrayOutputStream
+import java.util.zip.GZIPOutputStream
 import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
@@ -107,6 +109,23 @@ class DnsFilterTest {
         assertTrue(list.blocks("ads.test"))
         assertTrue(!list.blocks("notexample.com"))
         assertTrue(!list.blocks("example.com.evil.net"))
+    }
+
+    @Test
+    fun `the catalogue is read whether or not it arrives compressed`() {
+        val text = "example.com\ncdn.example.net\n"
+        val plain = DomainBlocklist.fromStream(text.byteInputStream())
+        val compressed = DomainBlocklist.fromStream(compressed(text))
+        assertEquals(2, plain.size)
+        assertEquals(plain.size, compressed.size)
+        assertTrue(plain.blocks("ads.example.com"))
+        assertTrue(compressed.blocks("cdn.example.net"))
+    }
+
+    private fun compressed(text: String): java.io.InputStream {
+        val bytes = ByteArrayOutputStream()
+        GZIPOutputStream(bytes).use { it.write(text.toByteArray()) }
+        return bytes.toByteArray().inputStream()
     }
 
     @Test
