@@ -16,6 +16,7 @@ import com.naqaa.app.R
 import com.naqaa.app.content.Content
 import com.naqaa.app.data.EventKind
 import com.naqaa.app.notify.Notices
+import com.naqaa.app.util.CrashLog
 import java.io.FileInputStream
 import java.io.FileOutputStream
 import java.net.InetAddress
@@ -103,9 +104,11 @@ class DnsVpnService : VpnService() {
                     }
                 }
             }
-        } catch (_: Exception) {
+        } catch (error: Exception) {
             // A revoked tunnel or a closed descriptor ends the loop; onRevoke and the next
-            // start command decide whether protection comes back.
+            // start command decide whether protection comes back. A catalogue that cannot be
+            // read is different, and is recorded: a filter without its list does nothing.
+            if (blocklist == null) CrashLog.note(this, "blocklist", error)
         } finally {
             if (running.getAndSet(false)) {
                 closeTunnel()
@@ -182,8 +185,7 @@ class DnsVpnService : VpnService() {
         Notices.protectionStarted(this, card.verseAr, card.motivation(graph.current().language))
     }
 
-    private fun loadBlocklist(): DomainBlocklist =
-        assets.open(BLOCKLIST_ASSET).use { DomainBlocklist.fromCompressed(it) }
+    private fun loadBlocklist(): DomainBlocklist = DomainBlocklist.fromAsset(assets)
 
     private fun establish(): ParcelFileDescriptor? {
         val routes = underlyingServers()
@@ -263,7 +265,6 @@ class DnsVpnService : VpnService() {
     }
 
     private companion object {
-        const val BLOCKLIST_ASSET = "blocked-domains.txt.gz"
         const val INTERFACE_ADDRESS = "10.111.0.1"
         const val RESOLVER_ADDRESS = "10.111.0.2"
         const val PREFIX = 32
