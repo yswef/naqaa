@@ -3,6 +3,22 @@
 All notable changes to this project are recorded here. The format follows the usual
 sections: added, changed, fixed and removed.
 
+## 1.0.5 - 2026-10-07
+
+### Added
+
+- The build prints what every released file contains: the entry count, the unpacked size of
+  the code, the resources, the assets and the sound, the number of classes and how many of
+  them belong to this application, and whether the components named in the manifest are
+  present. A file that lost a component fails the build instead of being published.
+
+### Changed
+
+- The release notes answer the question of the file size next to the download: the
+  application carries no images, no advertising and no network libraries, the icons and
+  drawings are vectors, the blocked list is compressed, and the build removes every part of
+  the libraries that is never called.
+
 ## 1.0.4 - 2026-10-06
 
 ### Added
