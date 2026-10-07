@@ -4,8 +4,10 @@ import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
+import android.content.ContentResolver
 import android.content.Context
 import android.graphics.drawable.Icon
+import android.net.Uri
 import com.naqaa.app.R
 import com.naqaa.app.ui.Screens
 
@@ -31,12 +33,29 @@ object Notices {
             }
         )
         manager.createNotificationChannel(
+            // The prayer reminder carries the bundled chime, so it has a channel of its own:
+            // a channel keeps the sound it was created with, and the other reminders stay
+            // quiet while a blocked attempt in the middle of browsing stays quiet too.
+            NotificationChannel(CHANNEL_PRAYER, context.getString(R.string.channel_prayer), NotificationManager.IMPORTANCE_DEFAULT).apply {
+                lockscreenVisibility = Notification.VISIBILITY_SECRET
+                setShowBadge(false)
+                setSound(chime(context))
+            }
+        )
+        manager.createNotificationChannel(
             NotificationChannel(CHANNEL_PROTECTION, context.getString(R.string.channel_protection), NotificationManager.IMPORTANCE_LOW).apply {
                 lockscreenVisibility = Notification.VISIBILITY_SECRET
                 setShowBadge(false)
             }
         )
     }
+
+    /**
+     * Address of the bundled chime. Naming the resource here is also what keeps it in a
+     * release build: the build removes every resource the code does not mention.
+     */
+    private fun chime(context: Context): Uri =
+        Uri.parse("${ContentResolver.SCHEME_ANDROID_RESOURCE}://${context.packageName}/${R.raw.prayer_chime}")
 
     fun protection(context: Context): Notification = builder(context, CHANNEL_PROTECTION)
         .setContentTitle(context.getString(R.string.notification_title))
@@ -76,7 +95,7 @@ object Notices {
 
     fun prayerReminder(context: Context, prayer: String) {
         post(
-            context, ID_PRAYER, builder(context, CHANNEL_REMINDER)
+            context, ID_PRAYER, builder(context, CHANNEL_PRAYER)
                 .setContentTitle(context.getString(R.string.notification_title))
                 .setContentText(context.getString(R.string.prayer_reminder_text, prayer))
                 .setAutoCancel(true)
@@ -130,6 +149,7 @@ object Notices {
         if (manager.areNotificationsEnabled()) manager.notify(id, notification)
     }
 
+    private const val CHANNEL_PRAYER = "prayer"
     private const val CHANNEL_REMINDER = "reminders"
     private const val CHANNEL_PROTECTION = "protection"
 }

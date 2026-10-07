@@ -29,6 +29,7 @@
     <string name="breath_in">Breathe in</string>
     <string name="breath_out">Breathe out</string>
     <string name="cancel">Cancel</string>
+    <string name="channel_prayer">Prayer reminder</string>
     <string name="channel_protection">Protection</string>
     <string name="channel_reminder">Reminders</string>
     <string name="collapse">Hide</string>

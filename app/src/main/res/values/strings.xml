@@ -31,6 +31,7 @@
     <string name="breath_in">شهيق</string>
     <string name="breath_out">زفير</string>
     <string name="cancel">إلغاء</string>
+    <string name="channel_prayer">تنبيه الصلاة</string>
     <string name="channel_protection">الحماية</string>
     <string name="channel_reminder">التذكيرات</string>
     <string name="collapse">إخفاء</string>
