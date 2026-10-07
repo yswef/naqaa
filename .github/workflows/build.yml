@@ -121,6 +121,7 @@ jobs:
 
       - name: Verify the release build
         id: verify
+        if: steps.tests.outcome != 'failure' && steps.assemble.outcome != 'failure'
         run: |
           # The step is long, and a bare exit tells nobody where it stopped.
           trap 'echo "::error ::verify stopped at line $LINENO"' ERR
