@@ -55,8 +55,9 @@ object Notices {
     }
 
     /**
-     * Address of the bundled chime. Naming the resource here is also what keeps it in a
-     * release build: the build removes every resource the code does not mention.
+     * Address of the bundled chime. The sound is played by the system, and the build turns
+     * the resource identifier into a number, so the file is kept by the rule list in
+     * `res/raw/keep.xml` rather than by this mention.
      */
     private fun chime(context: Context): Uri =
         Uri.parse("${ContentResolver.SCHEME_ANDROID_RESOURCE}://${context.packageName}/${R.raw.prayer_chime}")

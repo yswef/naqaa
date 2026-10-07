@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The reminder sound is played by the system out of the notification channel, and the build
+     rewrites the resource identifier into a number before the resource shrinker runs, so
+     nothing readable mentions the file by the time unused resources are removed. This list
+     is the supported way to say that the sound is in use. -->
+<resources xmlns:tools="http://schemas.android.com/tools" tools:keep="@raw/prayer_chime" />
