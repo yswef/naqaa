@@ -37,12 +37,15 @@ REQUIRED = (
     'assets/content/adhkar.json',
     'assets/content/motivation.json',
     'assets/content/plan.json',
-    'res/raw/prayer_chime.ogg',
 )
 
 # The packaging tool stores a gzip asset under its name without the suffix, so either name
 # counts as the catalogue.
 BLOCKLIST = ('assets/blocked-domains.txt', 'assets/blocked-domains.txt.gz')
+
+# The build relocates and renames resource files, so the reminder sound is looked for by its
+# kind rather than by the path it had in the project.
+AUDIO = ('.ogg', '.mp3', '.wav', '.m4a', '.aac', '.flac')
 
 CODE = 'code'
 TABLE = 'resource table'
@@ -100,10 +103,15 @@ def main():
     missing += [name for name in REQUIRED if name not in names]
     if not any(name in names for name in BLOCKLIST):
         missing.append('the blocked list')
+    audio = [entry for entry in entries if entry.filename.lower().endswith(AUDIO)]
+    if not audio:
+        missing.append('the reminder sound')
     print(f'  contents: {len(entries)} entries, {human(sum(sizes.values()))} unpacked')
     for group, size in sorted(sizes.items(), key=lambda item: -item[1]):
         detail = f', {classes} classes' if group == CODE else ''
         print(f'    {group}: {human(size)}, {counts[group]} file(s){detail}')
+    for entry in audio:
+        print(f'      sound file: {entry.filename}: {human(entry.file_size)}')
     for name, size in sorted(payload)[:LISTED]:
         print(f'      {name}: {human(size)}')
     if len(payload) > LISTED:
