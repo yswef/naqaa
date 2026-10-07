@@ -7,10 +7,11 @@ sections: added, changed, fixed and removed.
 
 ### Fixed
 
-- The reminder chime was never heard: nothing named the bundled sound, so the build removed
-  it as an unused resource. The prayer reminder now posts to its own channel, which carries
-  the chime, and a keep list in `res/raw` holds the file in place. The other reminders keep
-  the system sound, and a blocked attempt stays silent while the phone is being used.
+- The reminder chime was never heard: no channel used the bundled sound, so every reminder
+  fell back to the system tone. The prayer reminder now posts to its own channel, which
+  carries the chime, and a keep list holds the file in place against the step that removes
+  unused resources. The other reminders keep the system sound, and a blocked attempt stays
+  silent while the phone is being used.
 
 ## 1.0.6 - 2026-10-07
 
