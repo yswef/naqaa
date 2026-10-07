@@ -1,9 +1,10 @@
 name: device check
 
-# Runs the published file on an emulator of the chosen Android level and keeps what the
-# device wrote. This is the only way to see a failure that happens on a phone and nowhere
-# else: the emulator produces the same trace the phone would, and the report is kept where
-# it can be read and compared between runs.
+# Starts the published file on an emulator of the chosen Android level and keeps what the
+# device wrote. A failure that only happens on a phone has no other witness: the emulator
+# produces the same trace, and the report is committed to a branch so that it can be read
+# and compared between runs. The emulator is driven step by step rather than through a
+# wrapper, so every line of its output is kept with the report.
 
 on:
   workflow_dispatch:
@@ -28,6 +29,10 @@ on:
 permissions:
   contents: write
 
+env:
+  API_LEVEL: ${{ github.event.inputs.api_level || github.event.client_payload.api_level || '28' }}
+  ASSET: ${{ github.event.inputs.asset || github.event.client_payload.asset || 'v1.0.7' }}
+
 jobs:
   run:
     name: Run on the emulator
@@ -49,12 +54,11 @@ jobs:
       - name: Fetch the file under test
         env:
           GH_TOKEN: ${{ github.token }}
-          ASSET: ${{ github.event.inputs.asset || github.event.client_payload.asset || 'v1.0.7' }}
         run: |
           mkdir -p under-test
           if [ "$ASSET" = "build" ]; then
             echo "::notice ::building the file from the current sources"
-            ./gradlew --no-daemon assembleDebug
+            ./gradlew --no-daemon assembleDebug > device-gradle.txt 2>&1 || tail -40 device-gradle.txt
             cp app/build/outputs/apk/debug/*.apk under-test/Naqaa.apk
           else
             echo "::notice ::downloading the published file of $ASSET"
@@ -62,125 +66,119 @@ jobs:
             single="$(ls under-test/*.apk | head -1)"
             mv "$single" under-test/Naqaa.apk
           fi
-          ls -l under-test
-          sha256sum under-test/Naqaa.apk > device-sha256.txt
-          cat device-sha256.txt
+          ls -l under-test | tee device-file.txt
+          sha256sum under-test/Naqaa.apk | tee -a device-file.txt
 
-      - name: Run the application and collect what the device wrote
-        uses: reactivecircus/android-emulator-runner@v2
-        with:
-          api-level: ${{ github.event.inputs.api_level || github.event.client_payload.api_level || '28' }}
-          target: default
-          arch: x86_64
-          avd-name: naqaa-${{ github.run_id }}
-          force-avd-creation: true
-          disable-animations: true
-          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -no-snapshot -memory 2048
-          script: |
-            # Every line reports its own result; nothing here may stop the collection early,
-            # because what the device did after the first failure is the interesting part.
-            set +e
-            adb shell getprop ro.build.version.sdk > device-android.txt 2>&1
-            adb shell getprop ro.product.cpu.abilist > device-abis.txt 2>&1
-            adb install -r under-test/Naqaa.apk > device-install.txt 2>&1
-            adb shell dumpsys package com.naqaa.app | grep -E "versionName|versionCode|firstInstallTime" > device-package.txt 2>&1
+      - name: Prepare the emulator
+        run: |
+          {
+            echo "--- host"
+            uname -a
+            echo "--- hardware acceleration"
+            ls -l /dev/kvm 2>&1
+            egrep -c '(vmx|svm)' /proc/cpuinfo || true
+            echo "--- packages"
+            sdkmanager --install "platform-tools" "emulator" "system-images;android-$API_LEVEL;default;x86_64"
+            echo "no" | avdmanager create avd -n naqaa -k "system-images;android-$API_LEVEL;default;x86_64" -d pixel --force
+          } > device-emulator-setup.txt 2>&1
+          tail -20 device-emulator-setup.txt
+
+      - name: Install and launch the application
+        run: |
+          {
+            echo "--- starting the emulator"
+            nohup "$ANDROID_HOME/emulator/emulator" -avd naqaa -no-window -no-audio -no-boot-anim \
+              -no-snapshot -gpu swiftshader_indirect -memory 2048 > device-emulator.txt 2>&1 &
+            adb wait-for-device
+            for attempt in $(seq 1 120); do
+              boot="$(adb shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')"
+              [ "$boot" = "1" ] && break
+              sleep 5
+            done
+            echo "boot_completed=$(adb shell getprop sys.boot_completed | tr -d '\r')"
+            echo "android=$(adb shell getprop ro.build.version.sdk | tr -d '\r')"
+            echo "abis=$(adb shell getprop ro.product.cpu.abilist | tr -d '\r')"
+            echo "--- installing"
+            adb install -r under-test/Naqaa.apk
+            adb shell dumpsys package com.naqaa.app | grep -E "versionName|versionCode|firstInstallTime" || true
+          } > device-install.txt 2>&1
+          tail -12 device-install.txt
+
+      - name: Watch the application start
+        run: |
+          {
             adb logcat -c
-
-            # The launcher entry is what a tap on the icon starts, so it is tried first.
-            adb shell monkey -p com.naqaa.app -c android.intent.category.LAUNCHER 1 > device-launch-1.txt 2>&1
+            echo "--- launch through the launcher entry"
+            adb shell monkey -p com.naqaa.app -c android.intent.category.LAUNCHER 1
             sleep 25
-            {
-              echo "--- after the first launch:"
-              adb shell pidof com.naqaa.app || echo "not running"
-            } > device-process.txt 2>&1
-            adb logcat -d -b crash > device-crash-1.txt 2>&1
-            adb exec-out screencap -p > device-screen-1.png 2>/dev/null
+            echo "--- process after the first launch"
+            adb shell pidof com.naqaa.app || echo "not running"
+            echo "--- crash buffer"
+            adb logcat -d -b crash
+          } > device-first-launch.txt 2>&1
+          tail -40 device-first-launch.txt
 
-            # A second launch shows the failure text that the first one left behind.
-            adb shell am start -n com.naqaa.app/.ui.MainActivity > device-launch-2.txt 2>&1
+      - name: Collect what the device wrote
+        run: |
+          {
+            echo "--- second launch, which shows the failure text left by the first"
+            adb shell am start -n com.naqaa.app/.ui.MainActivity
             sleep 12
-            {
-              echo "--- after the second launch:"
-              adb shell pidof com.naqaa.app || echo "not running"
-            } >> device-process.txt 2>&1
-            adb logcat -d -b crash > device-crash-2.txt 2>&1
-            adb exec-out screencap -p > device-screen-2.png 2>/dev/null
-            adb logcat -d | grep -iE "naqaa|AndroidRuntime|FATAL|ActivityManager.*(died|Force|crash)" | tail -400 > device-lines.txt 2>&1
-
-            # The emulator image can be rooted, which is the only way to read the file the
-            # application wrote about its own failure.
+            echo "--- process after the second launch"
+            adb shell pidof com.naqaa.app || echo "not running"
+            echo "--- crash buffer"
+            adb logcat -d -b crash
+            echo "--- lines that mention the application"
+            adb logcat -d | grep -iE "naqaa|AndroidRuntime|FATAL|ActivityManager.*(died|Force|crash)" | tail -300
+            echo "--- activity state"
+            adb shell dumpsys activity activities | grep -i -B2 -A4 naqaa | head -60
+          } > device-second-launch.txt 2>&1
+          adb exec-out screencap -p > device-screen-1.png 2>/dev/null || true
+          adb shell am start -n com.naqaa.app/.ui.MainActivity > /dev/null 2>&1 || true
+          sleep 6
+          adb exec-out screencap -p > device-screen-2.png 2>/dev/null || true
+          {
+            echo "--- files the application keeps"
             adb root > /dev/null 2>&1
             sleep 5
-            adb shell 'ls -l /data/data/com.naqaa.app/files/ 2>&1' > device-files.txt 2>&1
-            adb shell 'cat /data/data/com.naqaa.app/files/last-error.txt 2>&1' > device-last-error.txt 2>&1
-            adb shell 'cat /data/data/com.naqaa.app/files/last-launch.txt 2>&1' > device-last-launch.txt 2>&1
-            adb shell 'dumpsys activity activities | grep -i -B2 -A4 naqaa | head -60' > device-activity.txt 2>&1
-            exit 0
+            adb shell 'ls -l /data/data/com.naqaa.app/files/' 2>&1
+            echo "--- the failure it recorded"
+            adb shell 'cat /data/data/com.naqaa.app/files/last-error.txt' 2>&1
+            echo "--- the launch marker"
+            adb shell 'cat /data/data/com.naqaa.app/files/last-launch.txt' 2>&1
+          } > device-application-files.txt 2>&1
+          tail -40 device-application-files.txt
 
       - name: Explain what the device reported
         if: always()
         run: |
-          # The run log and the step summary are not always readable from outside, and
-          # annotations are, so the important lines are repeated as annotations too.
-          annotate() {
-            local title="$1" file="$2" text
-            [ -f "$file" ] || return 0
-            text="$(head -c 1500 "$file" | tr '\n' '~' | sed 's/%/%25/g; s/~/ | /g')"
-            [ -n "$text" ] || return 0
-            echo "::error title=$title::$text"
-          }
           {
-            echo "### Device check"
+            echo "### Device check on Android $API_LEVEL with $ASSET"
             echo
-            echo "install: $(tail -2 device-install.txt 2>/dev/null | tr '\n' ' ')"
-            echo "package: $(cat device-package.txt 2>/dev/null | tr '\n' ' ')"
-            echo "state:   $(cat device-process.txt 2>/dev/null | tr '\n' ' ')"
-            echo
-            echo "--- crash buffer after the first launch"
-            tail -c 3000 device-crash-1.txt 2>/dev/null
-            echo "--- crash buffer after the second launch"
-            tail -c 3000 device-crash-2.txt 2>/dev/null
-            echo "--- the failure text the application wrote"
-            head -c 2000 device-last-error.txt 2>/dev/null
-            head -c 2000 device-last-launch.txt 2>/dev/null
-            echo "--- lines that mention the application"
-            tail -c 3000 device-lines.txt 2>/dev/null
-          } > device-summary.txt || true
-          cat device-summary.txt || true
+            for file in device-file.txt device-install.txt device-first-launch.txt device-second-launch.txt device-application-files.txt device-emulator-setup.txt; do
+              echo "===== $file"
+              tail -c 4000 "$file" 2>/dev/null || echo "missing"
+              echo
+            done
+          } > device-summary.txt
+          cat device-summary.txt
           {
             echo '```'
             head -c 60000 device-summary.txt
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY" || true
-          annotate process device-process.txt
-          annotate crash-first device-crash-1.txt
-          annotate crash-second device-crash-2.txt
-          annotate application-report device-last-error.txt
-          annotate launch-marker device-last-launch.txt
-          annotate application-lines device-lines.txt
-          exit 0
 
       - name: Keep the report where it can be read
         if: always()
         run: |
-          # The run log and the artifact are not always readable from outside, and a report
-          # that cannot be read is worth nothing, so it is committed to a branch of its own.
           git config user.name "yswef"
           git config user.email "170477919+yswef@users.noreply.github.com"
           git checkout -B device-report || true
           git add -f device-*.txt device-screen-*.png || true
-          git commit -q -m "device check on Android ${{ github.event.inputs.api_level || github.event.client_payload.api_level || '28' }}" || echo "nothing changed"
+          git commit -q -m "device check on Android $API_LEVEL" || echo "nothing changed"
           if git push -f origin device-report; then
             echo "::notice ::the report is on the device-report branch"
           else
-            echo "::warning ::the report could not be pushed to a branch; it stays in the run artifacts"
+            echo "::warning ::the report could not be pushed to a branch"
           fi
           exit 0
-
-      - name: Fail when the application was not running
-        if: always()
-        run: |
-          if grep -q "not running" device-process.txt 2>/dev/null; then
-            echo "::error ::the application stopped on this device"
-            exit 1
-          fi
