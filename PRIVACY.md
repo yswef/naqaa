@@ -10,7 +10,7 @@ Cloud backup and device transfer are excluded through Android backup rules. Manu
 
 ## Failure text
 
-If the application stops, the details of that failure are written to a private file in the application's own directory: the version, the Android level, the processor list and the stack trace. Nothing from the journal, the reason, or the contact is included. The next start shows the text with a copy button and a share button, and deletes the file once the user continues. It is never uploaded by the application; sharing it is a decision the user makes, and the text should be read before it is sent anywhere.
+If the application stops, the details of that failure are written to a private file in the application's own directory: the version, the Android level, the processor list and the stack trace. Nothing from the journal, the reason, or the contact is included. A copy is also placed in the application's own folder on the shared storage, so that the text can be copied out from a computer when the interface never appeared; that folder is removed with the application. The next start shows the text with a copy button and a share button, and deletes both copies once the user continues. It is never uploaded by the application; sharing it is a decision the user makes, and the text should be read before it is sent anywhere.
 
 ## DNS traffic
 

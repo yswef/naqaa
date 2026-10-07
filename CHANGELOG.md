@@ -3,6 +3,20 @@
 All notable changes to this project are recorded here. The format follows the usual
 sections: added, changed, fixed and removed.
 
+## 1.0.8 - 2026-10-07
+
+### Added
+
+- The failure text is also written to the folder the application owns on the shared storage,
+  which a phone shows over a cable. A failure that keeps the interface from appearing can
+  therefore be read from a computer, without a debugging tool and without a permission.
+
+### Fixed
+
+- The first state of the interface is built defensively: a failure while reading the journal
+  or the settings now leaves a usable screen and records its reason, instead of ending the
+  launch before anything is drawn.
+
 ## 1.0.7 - 2026-10-07
 
 ### Fixed

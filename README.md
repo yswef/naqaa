@@ -182,8 +182,11 @@ are encrypted the same way and written atomically. The PIN is hashed with
 PBKDF2-HMAC-SHA256 and 310,000 iterations, cloud backup and device transfer are disabled
 in the manifest, screen capture is blocked with `FLAG_SECURE`, notifications are private,
 and the single destructive action asks twice. A failure that stops the application is
-written to a private file on the device and offered on the next start with a copy button and
-a send button; the application itself never sends it anywhere. See
+written to a private file on the device, and a copy goes to the application's own folder on
+the shared storage, which a phone shows over a cable: if the interface never appears, connect
+the phone to a computer and read `Android/data/com.naqaa.app/files/last-error.txt`. The next
+start offers the same text with a copy button and a send button. The application itself never
+sends it anywhere. See
 [PRIVACY.md](PRIVACY.md).
 
 ## Known limitations
