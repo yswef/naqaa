@@ -3,6 +3,18 @@
 All notable changes to this project are recorded here. The format follows the usual
 sections: added, changed, fixed and removed.
 
+## 1.0.6 - 2026-10-07
+
+### Fixed
+
+- The domain catalogue was opened under a name that the packaging tool does not keep: a
+  gzip asset is expanded and stored without its suffix, so the reader found nothing and the
+  filter started without a single rule. It now opens either name and tells the compressed
+  and the plain form apart by their magic bytes, and a build that omits the catalogue fails
+  the content check instead of shipping a filter that does nothing.
+- A catalogue that cannot be read is written to the failure text instead of leaving the
+  service to end in silence.
+
 ## 1.0.5 - 2026-10-07
 
 ### Added
