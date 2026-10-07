@@ -49,7 +49,10 @@ object CrashLog {
 
     /** Called once the interface composed: the launch reached the end of the risky part. */
     fun sessionComposed(context: Context) {
-        runCatching { File(context.applicationContext.filesDir, SESSION_FILE).delete() }
+        val appContext = context.applicationContext
+        listOfNotNull(appContext.filesDir, appContext.getExternalFilesDir(null)).forEach { folder ->
+            runCatching { File(folder, SESSION_FILE).delete() }
+        }
     }
 
     fun pending(context: Context): Report? {
@@ -65,14 +68,25 @@ object CrashLog {
 
     fun clear(context: Context) {
         val appContext = context.applicationContext
-        runCatching { File(appContext.filesDir, EXCEPTION_FILE).delete() }
-        runCatching { File(appContext.filesDir, SESSION_FILE).delete() }
+        val folders = listOfNotNull(appContext.filesDir, appContext.getExternalFilesDir(null))
+        folders.forEach { folder ->
+            runCatching { File(folder, EXCEPTION_FILE).delete() }
+            runCatching { File(folder, SESSION_FILE).delete() }
+        }
     }
 
     private fun read(file: File): String = runCatching { file.readText() }.getOrDefault("")
 
     private fun write(context: Context, name: String, text: String) {
         File(context.filesDir, name).writeText(text)
+        // The same text goes to the folder this application owns on the shared storage. A
+        // phone connected to a computer shows that folder, so the text can be copied out and
+        // read even when the interface never appeared, and without any permission on the
+        // shared storage.
+        runCatching {
+            val folder = context.getExternalFilesDir(null) ?: return@runCatching
+            File(folder, name).writeText(text)
+        }
     }
 
     private fun describe(context: Context, thread: String, error: Throwable): String =
