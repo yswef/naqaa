@@ -7,6 +7,7 @@ import android.app.PendingIntent
 import android.content.ContentResolver
 import android.content.Context
 import android.graphics.drawable.Icon
+import android.media.AudioAttributes
 import android.net.Uri
 import com.naqaa.app.R
 import com.naqaa.app.ui.Screens
@@ -39,7 +40,10 @@ object Notices {
             NotificationChannel(CHANNEL_PRAYER, context.getString(R.string.channel_prayer), NotificationManager.IMPORTANCE_DEFAULT).apply {
                 lockscreenVisibility = Notification.VISIBILITY_SECRET
                 setShowBadge(false)
-                setSound(chime(context))
+                setSound(
+                    chime(context),
+                    AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_NOTIFICATION).build()
+                )
             }
         )
         manager.createNotificationChannel(
