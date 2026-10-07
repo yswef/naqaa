@@ -112,6 +112,8 @@ jobs:
       - name: Verify the release build
         id: verify
         run: |
+          # The step is long, and a bare exit tells nobody where it stopped.
+          trap 'echo "::error ::verify stopped at line $LINENO"' ERR
           build_tools="$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)"
           report="$RUNNER_TEMP/verify.txt"
           : > "$report"
@@ -153,10 +155,12 @@ jobs:
             # What is inside the file, so a download is judged by its contents rather than
             # by its size.
             contents="$RUNNER_TEMP/contents.txt"
-            python3 tools/check_apk.py "$apk" > "$contents" || incomplete=1
-            missing="$(grep -m1 '^  missing:' "$contents" || true)"
-            if [ -n "$missing" ]; then
-              echo "::error ::$name $missing"
+            if python3 tools/check_apk.py "$apk" > "$contents" 2>&1; then
+              :
+            else
+              incomplete=1
+              # The reason is repeated as an annotation so that it survives the run.
+              echo "::error ::$name: $(grep -m1 -E '^  missing:|rror' "$contents" | head -c 400)"
             fi
             cat "$contents" >> "$report"
             # A debug or test attribute makes the installer refuse the file with a bare
