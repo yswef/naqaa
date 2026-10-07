@@ -1,5 +1,0 @@
-<?xml version="1.0" encoding="utf-8"?>
-<!-- The reminder sound is played by the system out of the notification channel, not read by
-     the application itself, so it is named here as well: the release build removes every
-     resource it believes nothing refers to. -->
-<resources xmlns:tools="http://schemas.android.com/tools" tools:keep="@raw/prayer_chime" />
