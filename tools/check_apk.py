@@ -37,7 +37,7 @@ REQUIRED = (
     'assets/content/adhkar.json',
     'assets/content/motivation.json',
     'assets/content/plan.json',
-    'res/raw/adhan.ogg',
+    'res/raw/prayer_chime.ogg',
 )
 
 # The packaging tool stores a gzip asset under its name without the suffix, so either name
