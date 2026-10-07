@@ -28,6 +28,12 @@ string object per rule. A lookup binary searches the table and then repeats with
 suffix, so a rule for `example.com` also covers `cdn.example.com` while
 `notexample.com` stays untouched. Names are compared in lower case and ASCII only.
 
+The packaging tool expands a gzip asset and stores it without the `.gz` suffix, so the
+reader opens `blocked-domains.txt` first, falls back to `blocked-domains.txt.gz`, and tells
+the two forms apart by the gzip magic bytes rather than by the name. A build that omits the
+catalogue fails the content check in the workflow instead of shipping a filter that does
+nothing.
+
 To refresh the list, replace the gzipped asset, keep one name per line without comments,
 and rebuild; nothing in the code depends on the count. Keep the encrypted-DNS entries in
 place: without them a settings change would move resolution to a resolver the filter
