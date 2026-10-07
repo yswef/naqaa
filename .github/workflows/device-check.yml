@@ -16,8 +16,10 @@ on:
         description: Release tag whose file is tested, or "build" to use the current sources
         type: string
         default: v1.0.7
-  # A change to this file checks the check itself.
+  # A change to this file checks the check itself. Only the default branch is watched, so
+  # two runs never fight over the same emulator.
   push:
+    branches: [main]
     paths:
       - '.github/workflows/device-check.yml'
   repository_dispatch:
@@ -70,6 +72,7 @@ jobs:
           api-level: ${{ github.event.inputs.api_level || github.event.client_payload.api_level || '28' }}
           target: default
           arch: x86_64
+          avd-name: naqaa-${{ github.run_id }}
           force-avd-creation: true
           disable-animations: true
           emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -no-snapshot -memory 2048
@@ -117,6 +120,15 @@ jobs:
       - name: Explain what the device reported
         if: always()
         run: |
+          # The run log and the step summary are not always readable from outside, and
+          # annotations are, so the important lines are repeated as annotations too.
+          annotate() {
+            local title="$1" file="$2" text
+            [ -f "$file" ] || return 0
+            text="$(head -c 1500 "$file" | tr '\n' '~' | sed 's/%/%25/g; s/~/ | /g')"
+            [ -n "$text" ] || return 0
+            echo "::error title=$title::$text"
+          }
           {
             echo "### Device check"
             echo
@@ -133,13 +145,20 @@ jobs:
             head -c 2000 device-last-launch.txt 2>/dev/null
             echo "--- lines that mention the application"
             tail -c 3000 device-lines.txt 2>/dev/null
-          } > device-summary.txt
-          cat device-summary.txt
+          } > device-summary.txt || true
+          cat device-summary.txt || true
           {
             echo '```'
             head -c 60000 device-summary.txt
             echo '```'
-          } >> "$GITHUB_STEP_SUMMARY"
+          } >> "$GITHUB_STEP_SUMMARY" || true
+          annotate process device-process.txt
+          annotate crash-first device-crash-1.txt
+          annotate crash-second device-crash-2.txt
+          annotate application-report device-last-error.txt
+          annotate launch-marker device-last-launch.txt
+          annotate application-lines device-lines.txt
+          exit 0
 
       - name: Keep the report where it can be read
         if: always()
@@ -148,11 +167,15 @@ jobs:
           # that cannot be read is worth nothing, so it is committed to a branch of its own.
           git config user.name "yswef"
           git config user.email "170477919+yswef@users.noreply.github.com"
-          git checkout -B device-report
-          git add -f device-*.txt device-screen-*.png
+          git checkout -B device-report || true
+          git add -f device-*.txt device-screen-*.png || true
           git commit -q -m "device check on Android ${{ github.event.inputs.api_level || github.event.client_payload.api_level || '28' }}" || echo "nothing changed"
-          git push -f origin device-report
-          echo "::notice ::the report is on the device-report branch"
+          if git push -f origin device-report; then
+            echo "::notice ::the report is on the device-report branch"
+          else
+            echo "::warning ::the report could not be pushed to a branch; it stays in the run artifacts"
+          fi
+          exit 0
 
       - name: Fail when the application was not running
         if: always()
