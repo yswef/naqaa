@@ -152,7 +152,13 @@ jobs:
             printf '%s\n' "  $badging" >> "$report"
             # What is inside the file, so a download is judged by its contents rather than
             # by its size.
-            python3 tools/check_apk.py "$apk" >> "$report" || incomplete=1
+            contents="$RUNNER_TEMP/contents.txt"
+            python3 tools/check_apk.py "$apk" > "$contents" || incomplete=1
+            missing="$(grep -m1 '^  missing:' "$contents" || true)"
+            if [ -n "$missing" ]; then
+              echo "::error ::$name $missing"
+            fi
+            cat "$contents" >> "$report"
             # A debug or test attribute makes the installer refuse the file with a bare
             # message, so it is read out of the merged manifest and reported.
             file_blockers="$("$build_tools/aapt2" dump xmltree "$apk" --file AndroidManifest.xml 2>/dev/null \
