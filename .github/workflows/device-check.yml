@@ -84,51 +84,82 @@ jobs:
             # The launcher entry is what a tap on the icon starts, so it is tried first.
             adb shell monkey -p com.naqaa.app -c android.intent.category.LAUNCHER 1 2>&1 | tee device-launch-1.txt
             sleep 25
-            echo "--- process after the first launch:" | tee device-process.txt
-            adb shell pidof com.naqaa.app >> device-process.txt || echo "not running" >> device-process.txt
-            adb logcat -d > device-log-1.txt
+            {
+              echo "--- after the first launch:"
+              adb shell pidof com.naqaa.app || echo "not running"
+            } | tee device-process.txt
             adb logcat -d -b crash > device-crash-1.txt
             adb exec-out screencap -p > device-screen-1.png
 
             # A second launch shows the failure text that the first one left behind.
             adb shell am start -n com.naqaa.app/.ui.MainActivity 2>&1 | tee device-launch-2.txt
             sleep 12
-            echo "--- process after the second launch:" | tee -a device-process.txt
-            adb shell pidof com.naqaa.app >> device-process.txt || echo "not running" >> device-process.txt
+            {
+              echo "--- after the second launch:"
+              adb shell pidof com.naqaa.app || echo "not running"
+            } | tee -a device-process.txt
             adb logcat -d -b crash > device-crash-2.txt
             adb exec-out screencap -p > device-screen-2.png
-            adb shell dumpsys activity activities | grep -i -A3 naqaa | head -40 > device-activity.txt
-            adb shell run-as com.naqaa.app ls -l files 2>&1 | tee device-files.txt
-            adb shell run-as com.naqaa.app cat files/last-error.txt 2>&1 | tee device-last-error.txt
-            adb shell run-as com.naqaa.app cat files/last-launch.txt 2>&1 | tee device-last-launch.txt
+            adb logcat -d | grep -iE "naqaa|AndroidRuntime|FATAL|E ActivityManager|Force" | tail -400 > device-naqaa-lines.txt
+
+            # The emulator image can be rooted, which is the only way to read the file the
+            # application wrote about its own failure.
+            adb root > /dev/null 2>&1 || true
+            sleep 5
+            adb shell 'ls -l /data/data/com.naqaa.app/files/ 2>&1' | tee device-files.txt
+            adb shell 'cat /data/data/com.naqaa.app/files/last-error.txt 2>&1' | tee device-last-error.txt
+            adb shell 'cat /data/data/com.naqaa.app/files/last-launch.txt 2>&1' | tee device-last-launch.txt
+            adb shell 'cat /data/data/com.naqaa.app/databases/* 2>&1 | head -c 400' > device-databases.txt || true
             exit 0
 
       - name: Explain what the device reported
         if: always()
         run: |
+          # The log of a run cannot be read from outside in some environments, and the step
+          # summary cannot either, but annotations can. So the parts that matter are repeated
+          # as annotations, and the same text stays in the file that keeps the report.
+          annotate() {
+            local title="$1" file="$2" text
+            [ -f "$file" ] || return 0
+            text="$(head -c 1900 "$file" | tr '\n' '~' | sed 's/%/%25/g; s/~/ | /g')"
+            echo "::error title=$title::$text"
+          }
           {
             echo "### Device check"
             echo
-            echo '```'
-            echo "install: $(cat device-install.txt 2>/dev/null | tail -2 | tr '\n' ' ')"
+            echo "install: $(tail -2 device-install.txt 2>/dev/null | tr '\n' ' ')"
             echo "package: $(cat device-package.txt 2>/dev/null | tr '\n' ' ')"
-            echo "process: $(cat device-process.txt 2>/dev/null | tr '\n' ' ')"
+            echo "state:   $(cat device-process.txt 2>/dev/null | tr '\n' ' ')"
+          } | tee device-summary.txt
+          annotate process device-process.txt
+          annotate crash-first device-crash-1.txt
+          annotate crash-second device-crash-2.txt
+          annotate application-report device-last-error.txt
+          annotate launch-marker device-last-launch.txt
+          annotate launch-first device-launch-1.txt
+          annotate application-lines device-naqaa-lines.txt
+          {
+            echo
+            echo '```'
+            cat device-summary.txt 2>/dev/null
             echo
             echo "--- crash buffer after the first launch"
-            tail -c 4000 device-crash-1.txt 2>/dev/null || echo "empty"
-            echo
+            tail -c 3000 device-crash-1.txt 2>/dev/null
             echo "--- crash buffer after the second launch"
-            tail -c 4000 device-crash-2.txt 2>/dev/null || echo "empty"
-            echo
+            tail -c 3000 device-crash-2.txt 2>/dev/null
             echo "--- the failure text the application wrote"
             head -c 2000 device-last-error.txt 2>/dev/null
             head -c 2000 device-last-launch.txt 2>/dev/null
-            echo
-            echo "--- lines that mention the application"
-            grep -iE "naqaa|AndroidRuntime|FATAL|E ActivityManager" device-log-1.txt 2>/dev/null | tail -60
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
-          cat "$GITHUB_STEP_SUMMARY" | tail -80
+
+      - name: Fail when the application is not running
+        if: always()
+        run: |
+          if grep -q "not running" device-process.txt 2>/dev/null; then
+            echo "::error ::the application was not running after the launch: it stopped on this device"
+            exit 1
+          fi
 
       - name: Keep the report
         if: always()
