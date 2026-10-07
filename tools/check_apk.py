@@ -3,9 +3,12 @@
 
 A downloaded file is judged by its contents, not by its size: an application without images,
 advertising or network libraries is small, and a file that lost half of itself looks the
-same in a file manager. This reads the archive, prints its entries grouped by kind with the
-unpacked size of each group, counts the classes in the compiled code, and fails when a
-component named in the manifest is absent.
+same in a file manager. This reads the archive, prints its entries grouped by kind, names the
+payload files it carries, counts the classes in the compiled code, and fails when a component
+named in the manifest is absent.
+
+The names of the application's own classes are not listed, because the build renames and
+merges them; the manifest keeps the names of the components, and those are the ones checked.
 """
 import struct
 import sys
@@ -31,7 +34,7 @@ SOUND = 'sound'
 NATIVE = 'native libraries'
 OTHER = 'other resources'
 
-PREFIX = 'Lcom/naqaa/app/'
+LISTED = 12
 
 
 def group_of(name):
@@ -54,38 +57,13 @@ def human(size):
     return f'{size / 1024:.0f} KiB'
 
 
-def read_length(data, position):
-    """Reads the variable width length that starts a string entry."""
-    value, shift = 0, 0
-    while True:
-        piece = data[position]
-        position += 1
-        value |= (piece & 0x7F) << shift
-        if not piece & 0x80:
-            return value, position
-        shift += 7
-
-
-def descriptors(data):
-    """Reads the type descriptors out of one dex file's string table."""
-    count, offset = struct.unpack_from('<II', data, 56)
-    found = set()
-    for index in range(count):
-        start = struct.unpack_from('<I', data, offset + index * 4)[0]
-        length, position = read_length(data, start)
-        text = data[position:position + length].decode('utf-8', 'replace')
-        if text.startswith('L') and text.endswith(';'):
-            found.add(text)
-    return found
-
-
 def main():
     if len(sys.argv) != 2:
         print('usage: check_apk.py <file.apk>')
         return 2
     path = sys.argv[1]
-    sizes, counts = {}, {}
-    classes, mine, assets, sounds, blocked = 0, 0, 0, 0, False
+    sizes, counts, payload = {}, {}, []
+    classes = 0
     code = b''
     with zipfile.ZipFile(path) as archive:
         entries = archive.infolist()
@@ -97,26 +75,18 @@ def main():
                 data = archive.read(entry.filename)
                 code += data
                 classes += struct.unpack_from('<I', data, 96)[0]
-                mine += len([name for name in descriptors(data) if name.startswith(PREFIX)])
-            elif group == ASSETS:
-                assets += 1
-                if entry.filename.endswith('blocked-domains.txt.gz'):
-                    blocked = True
-            elif group == SOUND:
-                sounds += 1
+            elif group in (ASSETS, SOUND):
+                payload.append((entry.filename, entry.file_size))
 
     missing = [name for name in COMPONENTS if name.encode() not in code]
     print(f'  contents: {len(entries)} entries, {human(sum(sizes.values()))} unpacked')
     for group, size in sorted(sizes.items(), key=lambda item: -item[1]):
-        detail = ''
-        if group == CODE:
-            detail = f', {classes} classes, {mine} from this application'
-        elif group == ASSETS:
-            detail = ', of which the blocked list' if blocked else ''
-            detail += f' and {assets - (1 if blocked else 0)} content file(s)'
-        elif group == SOUND:
-            detail = ', the reminder sound'
+        detail = f', {classes} classes' if group == CODE else ''
         print(f'    {group}: {human(size)}, {counts[group]} file(s){detail}')
+    for name, size in sorted(payload)[:LISTED]:
+        print(f'      {name}: {human(size)}')
+    if len(payload) > LISTED:
+        print(f'      and {len(payload) - LISTED} more file(s)')
     if missing:
         print(f'  components missing: {", ".join(missing)}')
         return 1

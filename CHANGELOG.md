@@ -8,9 +8,10 @@ sections: added, changed, fixed and removed.
 ### Added
 
 - The build prints what every released file contains: the entry count, the unpacked size of
-  the code, the resources, the assets and the sound, the number of classes and how many of
-  them belong to this application, and whether the components named in the manifest are
-  present. A file that lost a component fails the build instead of being published.
+  the code, the resources, the assets and the sound, the number of classes, the name and
+  size of every file the application reads at run time, and whether the components named in
+  the manifest are present. A file that lost a component fails the build instead of being
+  published.
 
 ### Changed
 
