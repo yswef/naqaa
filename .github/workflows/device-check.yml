@@ -14,9 +14,9 @@ on:
         type: string
         default: '28'
       asset:
-        description: Release tag whose file is tested, or "build" to use the current sources
+        description: Release tag whose file is tested, or "build" to use the current sources; empty tests the latest release
         type: string
-        default: v1.0.7
+        default: ''
   # A change to this file checks the check itself. Only the default branch is watched, so
   # two runs never fight over the same emulator.
   push:
@@ -31,7 +31,7 @@ permissions:
 
 env:
   API_LEVEL: ${{ github.event.inputs.api_level || github.event.client_payload.api_level || '28' }}
-  ASSET: ${{ github.event.inputs.asset || github.event.client_payload.asset || 'v1.0.7' }}
+  ASSET: ${{ github.event.inputs.asset || github.event.client_payload.asset || '' }}
 
 jobs:
   run:
@@ -61,8 +61,13 @@ jobs:
             ./gradlew --no-daemon assembleDebug > device-gradle.txt 2>&1 || tail -40 device-gradle.txt
             cp app/build/outputs/apk/debug/*.apk under-test/Naqaa.apk
           else
-            echo "::notice ::downloading the published file of $ASSET"
-            gh release download "$ASSET" -p '*.apk' -D under-test
+            if [ -n "$ASSET" ]; then
+              echo "::notice ::downloading the published file of $ASSET"
+              gh release download "$ASSET" -p '*.apk' -D under-test
+            else
+              echo "::notice ::downloading the published file of the latest release"
+              gh release download -p '*.apk' -D under-test
+            fi
             single="$(ls under-test/*.apk | head -1)"
             mv "$single" under-test/Naqaa.apk
           fi

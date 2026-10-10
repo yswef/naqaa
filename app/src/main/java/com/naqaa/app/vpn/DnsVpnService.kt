@@ -73,10 +73,20 @@ class DnsVpnService : VpnService() {
     }
 
     private fun restart() {
+        val previous = worker
         running.set(false)
         closeTunnel()
-        worker?.interrupt()
-        if (running.compareAndSet(false, true)) startWorker()
+        previous?.interrupt()
+        // Closing the descriptor unblocks the read in the loop that is ending; waiting for
+        // its cleanup to finish keeps a dying session from stopping the one that starts
+        // here, because the old finally block would otherwise close the new tunnel and
+        // stop the service from under the replacement worker.
+        runCatching { previous?.join(RESTART_JOIN_MILLIS) }
+        if (running.compareAndSet(false, true)) {
+            VpnState.markStarted()
+            startForegroundCompat()
+            startWorker()
+        }
     }
 
     private fun startWorker() {
@@ -110,7 +120,10 @@ class DnsVpnService : VpnService() {
             // read is different, and is recorded: a filter without its list does nothing.
             if (blocklist == null) CrashLog.note(this, "blocklist", error)
         } finally {
-            if (running.getAndSet(false)) {
+            // Only the active worker ends the session: after a network change the loop
+            // that replaced this one owns the state, and a late cleanup from a stale
+            // worker must not tear down the tunnel that took its place.
+            if (Thread.currentThread() == worker && running.getAndSet(false)) {
                 closeTunnel()
                 VpnState.markStopped()
                 stopForeground(STOP_FOREGROUND_REMOVE)
@@ -272,6 +285,7 @@ class DnsVpnService : VpnService() {
         const val MAX_PACKET = 32_767
         const val MAX_ROUTES = 4
         const val BLOCK_NOTICE_INTERVAL = 15_000L
+        const val RESTART_JOIN_MILLIS = 2_000L
         const val DEFAULT_TTL = 60
         const val NO_TYPE = -1
         const val NOTE_REVOKED = "vpn_revoked"
