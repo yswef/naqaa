@@ -1,13 +1,14 @@
 package com.naqaa.app.prayer
 
+import java.util.Locale
 import kotlin.math.abs
 import kotlin.math.cos
 import kotlin.math.roundToInt
 
 /**
- * A short list of cities with coordinates rounded to the city centre. It exists so the
- * user can pick a location without a network request; the settings screen accepts exact
- * coordinates as well, and a one time location fix can pre-select the nearest entry.
+ * A built-in list of city centres so a location can be chosen without a network request.
+ * A one-time location fix can select the nearest entry and use the fix coordinates for
+ * prayer calculations; the country name is searchable alongside the city name.
  */
 data class City(
     val id: String,
@@ -18,7 +19,13 @@ data class City(
     val latitude: Double,
     val longitude: Double,
     val method: CalculationMethod
-)
+) {
+    fun displayLabel(language: String): String = if (language == "en") {
+        "$nameEn, $countryEn"
+    } else {
+        "$nameAr، $countryAr"
+    }
+}
 
 object Cities {
 
@@ -38,6 +45,10 @@ object Cities {
         City("muscat", "مسقط", "Muscat", "عمان", "Oman", 23.5880, 58.3829, CalculationMethod.UMM_AL_QURA),
         City("sanaa", "صنعاء", "Sanaa", "اليمن", "Yemen", 15.3694, 44.1910, CalculationMethod.UMM_AL_QURA),
         City("aden", "عدن", "Aden", "اليمن", "Yemen", 12.7855, 45.0187, CalculationMethod.UMM_AL_QURA),
+        City("taiz", "تعز", "Taiz", "اليمن", "Yemen", 13.5795, 44.0209, CalculationMethod.UMM_AL_QURA),
+        City("hudaydah", "الحديدة", "Al Hudaydah", "اليمن", "Yemen", 14.7979, 42.9545, CalculationMethod.UMM_AL_QURA),
+        City("mukalla", "المكلا", "Al Mukalla", "اليمن", "Yemen", 14.5425, 49.1242, CalculationMethod.UMM_AL_QURA),
+        City("ibb", "إب", "Ibb", "اليمن", "Yemen", 13.9667, 44.1833, CalculationMethod.UMM_AL_QURA),
         City("cairo", "القاهرة", "Cairo", "مصر", "Egypt", 30.0444, 31.2357, CalculationMethod.EGYPTIAN),
         City("alexandria", "الإسكندرية", "Alexandria", "مصر", "Egypt", 31.2001, 29.9187, CalculationMethod.EGYPTIAN),
         City("aswan", "أسوان", "Aswan", "مصر", "Egypt", 24.0889, 32.8998, CalculationMethod.EGYPTIAN),
@@ -97,6 +108,28 @@ object Cities {
 
     fun byId(id: String): City? = all.firstOrNull { it.id == id }
 
+    /** Searches both city and country names in Arabic and English, plus the stable city id. */
+    fun search(query: String): List<City> {
+        val terms = normalizeSearchText(query).split(WHITESPACE).filter { it.isNotBlank() }
+        if (terms.isEmpty()) return all
+        return all.filter { city ->
+            val searchable = normalizeSearchText(
+                "${city.nameAr} ${city.nameEn} ${city.countryAr} ${city.countryEn} ${city.id}"
+            )
+            terms.all { term -> searchable.contains(term) }
+        }
+    }
+
+    private fun normalizeSearchText(value: String): String = value
+        .lowercase(Locale.ROOT)
+        .replace(ARABIC_DIACRITICS, "")
+        .replace('أ', 'ا')
+        .replace('إ', 'ا')
+        .replace('آ', 'ا')
+        .replace('ى', 'ي')
+        .replace('ة', 'ه')
+        .trim()
+
     /** Nearest entry by equirectangular distance, used to pre-select a location from GPS. */
     fun nearest(latitude: Double, longitude: Double): City = all.minByOrNull { city ->
         val meanLatitude = Math.toRadians((city.latitude + latitude) / 2)
@@ -113,5 +146,7 @@ object Cities {
         return (EARTH_RADIUS_KM * kotlin.math.sqrt(north * north + x * x)).roundToInt().let { abs(it) }
     }
 
+    private val ARABIC_DIACRITICS = Regex("[\\u064B-\\u065F\\u0670]")
+    private val WHITESPACE = Regex("\\s+")
     private const val EARTH_RADIUS_KM = 6371.0
 }

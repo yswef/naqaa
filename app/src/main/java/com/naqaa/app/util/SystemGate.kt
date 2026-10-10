@@ -2,6 +2,7 @@ package com.naqaa.app.util
 
 import android.app.AlarmManager
 import android.app.admin.DevicePolicyManager
+import android.app.Activity
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
@@ -54,14 +55,34 @@ object SystemGate {
 
     fun accessibilitySettings(): Intent = Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)
 
+    /** App info is where Android 13+ lets a user allow restricted settings for a sideloaded app. */
+    fun appDetailsSettings(context: Context): Intent =
+        Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:${context.packageName}"))
+
     /** The security page is where a device administrator is removed. */
     fun deviceAdminSettings(): Intent = Intent(Settings.ACTION_SECURITY_SETTINGS)
 
     fun privateDnsSettings(): Intent = Intent(PRIVATE_DNS_ACTION)
 
-    fun exactAlarmSettings(): Intent = Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM)
+    fun exactAlarmSettings(context: Context): Intent =
+        Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM)
+            .setData(Uri.parse("package:${context.packageName}"))
 
-    fun batterySettings(): Intent = Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)
+    fun batterySettings(context: Context): Intent = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+        Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS)
+            .setData(Uri.parse("package:${context.packageName}"))
+    } else {
+        appDetailsSettings(context)
+    }
+
+    /** Opens the requested system page and falls back to this app's info page on OEM variants. */
+    fun openSettings(context: Context, intent: Intent): Boolean {
+        fun launch(target: Intent): Boolean {
+            val flags = if (context is Activity) 0 else Intent.FLAG_ACTIVITY_NEW_TASK
+            return runCatching { context.startActivity(Intent(target).addFlags(flags)); true }.getOrDefault(false)
+        }
+        return launch(intent) || launch(appDetailsSettings(context))
+    }
 
     fun notificationSettings(context: Context): Intent =
         Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName)

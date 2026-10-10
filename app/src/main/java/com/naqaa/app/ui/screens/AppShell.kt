@@ -37,16 +37,14 @@ enum class Destination(val label: Int, val icon: ImageVector?, val inBar: Boolea
     PROTECTION(R.string.nav_protection, Icons.Filled.Lock, true),
     PRAYER(R.string.nav_prayer, Icons.Filled.Notifications, true),
     SETTINGS(R.string.nav_settings, Icons.Filled.Settings, true),
+    ADHKAR(R.string.prayer_adhkar, null, false),
     EMERGENCY(R.string.nav_emergency, null, false),
     PROGRESS(R.string.nav_progress, null, false),
     PLAN(R.string.nav_plan, null, false),
     REPORT(R.string.nav_report, null, false)
 }
 
-/**
- * The shell around the screens: a bottom bar for the five places the user visits often,
- * and a back action for the four that are opened from the home screen.
- */
+/** Main tabs and secondary screens. */
 @Composable
 fun AppShell(viewModel: AppViewModel, state: UiState, requested: Destination? = null) {
     var destinationName by rememberSaveable { mutableStateOf((requested ?: Destination.HOME).name) }
@@ -60,14 +58,16 @@ fun AppShell(viewModel: AppViewModel, state: UiState, requested: Destination? = 
         destinationName = to.name
     }
 
-    BackHandler(enabled = destination != Destination.HOME) { navigate(Destination.HOME) }
+    BackHandler(enabled = destination != Destination.HOME) {
+        navigate(if (destination == Destination.ADHKAR) Destination.PRAYER else Destination.HOME)
+    }
 
     Scaffold(
         bottomBar = {
             NavigationBar {
                 Destination.entries.filter { it.inBar }.forEach { entry ->
                     NavigationBarItem(
-                        selected = destination == entry,
+                        selected = destination == entry || (destination == Destination.ADHKAR && entry == Destination.PRAYER),
                         onClick = { navigate(entry) },
                         icon = { entry.icon?.let { Icon(imageVector = it, contentDescription = null) } },
                         label = { Text(text = stringResource(entry.label)) }
@@ -88,7 +88,8 @@ fun AppShell(viewModel: AppViewModel, state: UiState, requested: Destination? = 
                 Destination.JOURNAL -> JournalScreen(viewModel, state)
                 Destination.PROGRESS -> ProgressScreen(state)
                 Destination.PROTECTION -> ProtectionScreen(viewModel, state)
-                Destination.PRAYER -> PrayerScreen(viewModel, state)
+                Destination.PRAYER -> PrayerScreen(viewModel, state) { navigate(Destination.ADHKAR) }
+                Destination.ADHKAR -> AdhkarScreen(viewModel, onBack = { navigate(Destination.PRAYER) })
                 Destination.PLAN -> PlanScreen(viewModel, state)
                 Destination.REPORT -> ReportScreen(viewModel, state)
                 Destination.SETTINGS -> SettingsScreen(viewModel, state)

@@ -165,7 +165,7 @@ class DelayActivity : ComponentActivity() {
             DelayGate.Action.ADMIN_OFF -> SystemGate.deviceAdminSettings()
             else -> null
         }
-        intent?.let { runCatching { startActivity(it) } }
+        intent?.let { SystemGate.openSettings(this, it) }
     }
 
     companion object {

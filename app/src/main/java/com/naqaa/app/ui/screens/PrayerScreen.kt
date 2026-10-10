@@ -2,19 +2,21 @@ package com.naqaa.app.ui.screens
 
 import android.Manifest
 import android.content.pm.PackageManager
-import android.location.LocationManager
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -32,6 +34,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import com.naqaa.app.R
+import com.naqaa.app.ui.theme.NaqaaOutlinedTextFieldColors
 import com.naqaa.app.content.Content
 import com.naqaa.app.data.EventKind
 import com.naqaa.app.prayer.CalculationMethod
@@ -41,38 +44,39 @@ import com.naqaa.app.prayer.PrayerCalculator
 import com.naqaa.app.ui.AppViewModel
 import com.naqaa.app.ui.UiState
 import com.naqaa.app.util.LocaleX
+import com.naqaa.app.util.OneTimeLocation
 import com.naqaa.app.util.TimeX
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
 
-/**
- * Prayer times, the city, and the daily remembrance.
- *
- * Times are computed on the device; the city picker exists so no location permission is
- * needed unless the user asks for one fix to pre-select the nearest city. The daily wird
- * is a single verse, and reading it is logged like any other good habit.
- */
+/** Prayer times, city selection, and daily remembrance. */
 @Composable
-fun PrayerScreen(viewModel: AppViewModel, state: UiState) {
+fun PrayerScreen(viewModel: AppViewModel, state: UiState, onOpenAdhkar: () -> Unit) {
     val context = LocalContext.current
     val language = state.preferences.language
     val display = LocaleX.displayLocale(language)
     val zone = ZoneId.systemDefault()
     var showCities by remember { mutableStateOf(false) }
-    var period by remember { mutableStateOf(Content.PERIOD_MORNING) }
-    var expanded by remember { mutableStateOf<String?>(null) }
+    var locationLoading by remember { mutableStateOf(false) }
+    var locationFailed by remember { mutableStateOf(false) }
 
     val locationPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
-        if (granted) {
-            val manager = context.getSystemService(LocationManager::class.java)
-            val last = runCatching {
-                manager.getProviders(true).firstNotNullOfOrNull { provider -> manager.getLastKnownLocation(provider) }
-            }.getOrNull()
-            if (last != null) {
-                val city = Cities.nearest(last.latitude, last.longitude)
-                viewModel.update {
-                    it.copy(cityId = city.id, latitude = last.latitude, longitude = last.longitude, prayerMethod = city.method)
+        if (!granted) {
+            locationLoading = false
+            locationFailed = true
+        } else {
+            locationLoading = true
+            locationFailed = false
+            OneTimeLocation.request(context) { location ->
+                locationLoading = false
+                if (location == null) {
+                    locationFailed = true
+                } else {
+                    val city = Cities.nearest(location.latitude, location.longitude)
+                    viewModel.update {
+                        it.copy(cityId = city.id, latitude = location.latitude, longitude = location.longitude, prayerMethod = city.method)
+                    }
                 }
             }
         }
@@ -97,28 +101,48 @@ fun PrayerScreen(viewModel: AppViewModel, state: UiState) {
             Spacer(Modifier.height(8.dp))
             val city = Cities.byId(state.preferences.cityId)
             Text(
-                text = city?.let {
-                    if (language == "en") "${it.nameEn}, ${it.countryEn}" else "${it.nameAr}، ${it.countryAr}"
-                } ?: stringResource(R.string.prayer_city_custom),
+                text = city?.displayLabel(language) ?: stringResource(R.string.prayer_city_custom),
                 style = MaterialTheme.typography.bodyMedium
             )
-            Spacer(Modifier.height(8.dp))
-            Row {
-                OutlinedButton(onClick = { showCities = true }, modifier = Modifier.weight(1f)) {
-                    Text(text = stringResource(R.string.prayer_choose_city))
+            Spacer(Modifier.height(10.dp))
+            Button(
+                onClick = { locationPermission.launch(Manifest.permission.ACCESS_COARSE_LOCATION) },
+                enabled = !locationLoading,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                if (locationLoading) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(18.dp),
+                        color = MaterialTheme.colorScheme.onPrimary,
+                        strokeWidth = 2.dp
+                    )
+                    Spacer(Modifier.width(8.dp))
                 }
-                Spacer(Modifier.height(4.dp))
-                OutlinedButton(
-                    onClick = { locationPermission.launch(Manifest.permission.ACCESS_COARSE_LOCATION) },
-                    modifier = Modifier.weight(1f)
-                ) {
-                    Text(text = stringResource(R.string.prayer_use_location))
-                }
+                Text(
+                    text = stringResource(
+                        if (locationLoading) R.string.prayer_location_loading else R.string.prayer_use_location
+                    )
+                )
             }
-            if (ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_COARSE_LOCATION) !=
+            Spacer(Modifier.height(6.dp))
+            OutlinedButton(
+                onClick = { showCities = true },
+                enabled = !locationLoading,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text(text = stringResource(R.string.prayer_choose_city))
+            }
+            if (locationFailed) {
+                Spacer(Modifier.height(6.dp))
+                Text(
+                    text = stringResource(R.string.prayer_location_failed),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.error
+                )
+            } else if (ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_COARSE_LOCATION) !=
                 PackageManager.PERMISSION_GRANTED
             ) {
-                Spacer(Modifier.height(4.dp))
+                Spacer(Modifier.height(6.dp))
                 Text(
                     text = stringResource(R.string.prayer_location_hint),
                     style = MaterialTheme.typography.bodySmall,
@@ -170,50 +194,8 @@ fun PrayerScreen(viewModel: AppViewModel, state: UiState) {
         }
 
         SectionCard(title = stringResource(R.string.prayer_adhkar)) {
-            Row {
-                FilterChip(
-                    selected = period == Content.PERIOD_MORNING,
-                    onClick = { period = Content.PERIOD_MORNING },
-                    label = { Text(text = stringResource(R.string.prayer_morning)) },
-                    modifier = Modifier.padding(end = 6.dp)
-                )
-                FilterChip(
-                    selected = period == Content.PERIOD_EVENING,
-                    onClick = { period = Content.PERIOD_EVENING },
-                    label = { Text(text = stringResource(R.string.prayer_evening)) }
-                )
-            }
-            Spacer(Modifier.height(8.dp))
-            val adhkar = remember(period) { Content.adhkar(period) }
-            adhkar.forEach { dhikr ->
-                Column(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
-                    Row(modifier = Modifier.fillMaxWidth()) {
-                        TextButton(onClick = { expanded = if (expanded == dhikr.id) null else dhikr.id }) {
-                            Text(
-                                text = stringResource(
-                                    if (expanded == dhikr.id) R.string.collapse else R.string.expand
-                                )
-                            )
-                        }
-                        Text(
-                            text = stringResource(R.string.prayer_repeat, dhikr.repeat),
-                            style = MaterialTheme.typography.bodySmall,
-                            modifier = Modifier.padding(top = 14.dp)
-                        )
-                    }
-                    if (expanded == dhikr.id) {
-                        Text(text = dhikr.textAr, style = MaterialTheme.typography.bodyLarge)
-                        Spacer(Modifier.height(4.dp))
-                        Text(text = dhikr.sourceAr, style = MaterialTheme.typography.labelMedium)
-                    }
-                }
-            }
-            Spacer(Modifier.height(8.dp))
-            Button(
-                onClick = { viewModel.log(EventKind.ADHKAR) },
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Text(text = stringResource(R.string.prayer_adhkar_done))
+            Button(onClick = onOpenAdhkar, modifier = Modifier.fillMaxWidth()) {
+                Text(text = stringResource(R.string.prayer_adhkar_start))
             }
         }
         Spacer(Modifier.height(20.dp))
@@ -221,8 +203,10 @@ fun PrayerScreen(viewModel: AppViewModel, state: UiState) {
 
     if (showCities) {
         CityPicker(
+            language = language,
             onDismiss = { showCities = false },
             onPick = { city ->
+                locationFailed = false
                 viewModel.update {
                     it.copy(cityId = city.id, latitude = city.latitude, longitude = city.longitude, prayerMethod = city.method)
                 }
@@ -233,36 +217,36 @@ fun PrayerScreen(viewModel: AppViewModel, state: UiState) {
 }
 
 @Composable
-private fun CityPicker(onDismiss: () -> Unit, onPick: (City) -> Unit) {
-    val language = LocaleX.language(androidx.compose.ui.platform.LocalContext.current)
+private fun CityPicker(language: String, onDismiss: () -> Unit, onPick: (City) -> Unit) {
     var query by remember { mutableStateOf("") }
-    val results = remember(query) {
-        val needle = query.trim()
-        if (needle.isEmpty()) {
-            Cities.all
-        } else {
-            Cities.all.filter { it.nameAr.contains(needle) || it.nameEn.contains(needle, ignoreCase = true) }
-        }
-    }
+    val results = remember(query) { Cities.search(query) }
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(text = stringResource(R.string.prayer_choose_city)) },
         text = {
             Column {
                 OutlinedTextField(
+                    colors = NaqaaOutlinedTextFieldColors(),
                     value = query,
                     onValueChange = { query = it },
                     singleLine = true,
                     label = { Text(text = stringResource(R.string.search)) },
+                    placeholder = { Text(text = stringResource(R.string.city_search_hint)) },
                     modifier = Modifier.fillMaxWidth()
                 )
                 Spacer(Modifier.height(8.dp))
-                LazyColumn(modifier = Modifier.fillMaxWidth().height(360.dp)) {
-                    items(results, key = { it.id }) { city ->
-                        TextButton(onClick = { onPick(city) }, modifier = Modifier.fillMaxWidth()) {
-                            Text(
-                                text = if (language == "en") "${city.nameEn}, ${city.countryEn}" else "${city.nameAr}، ${city.countryAr}"
-                            )
+                if (results.isEmpty()) {
+                    Text(
+                        text = stringResource(R.string.city_no_results),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                } else {
+                    LazyColumn(modifier = Modifier.fillMaxWidth().heightIn(max = 320.dp)) {
+                        items(results, key = { it.id }) { city ->
+                            TextButton(onClick = { onPick(city) }, modifier = Modifier.fillMaxWidth()) {
+                                Text(text = city.displayLabel(language), maxLines = 2)
+                            }
                         }
                     }
                 }

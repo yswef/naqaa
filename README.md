@@ -71,7 +71,8 @@ the FileProvider; the file has no notes, no contact details and no device identi
 ### Prayer, remembrance and plan
 
 Prayer times are computed on the device from the solar equations, with a choice of
-calculation method, a built-in city list or a one-time location fix. Reminders use exact
+calculation method, a built-in city list searchable by Arabic or English city/country name,
+or a one-time location fix to choose the nearest city automatically. Reminders use exact
 alarms when the system allows them and are rescheduled after a reboot, a time change or a
 time-zone change. Morning and evening remembrance, a short daily Quran reading and a
 thirty-day plan with one behavioural task, one spiritual task and one small challenge per
@@ -147,11 +148,12 @@ debug symbols, and the workflow warns when an APK crosses 6 MB.
 ## Tests
 
 `./gradlew testDebugUnitTest` runs the unit tests that do not need a device, currently
-forty-one of them:
+forty-seven of them:
 
 | Class | Covers |
 | --- | --- |
 | `prayer.PrayerCalculatorTest` | Solar noon, twilight order, day length at mid latitude, polar absence, methods, invalid coordinates |
+| `prayer.CitiesTest` | Arabic and English country search, Arabic normalization, and nearest-city selection |
 | `data.ProgressTest` | Streak arithmetic, lapses, badges, points, ninety-day window |
 | `vpn.DnsFilterTest` | Packet parsing, name encoding, error answers, safe-search rewriting, suffix matching, cache limits |
 | `report.ReportAnalyzerTest` | Risk bands, weekly windows, riskiest two-hour window, recommendations, badges |
