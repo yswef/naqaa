@@ -52,9 +52,9 @@ object OneTimeLocation {
             LocationManagerCompat.getCurrentLocation(
                 manager,
                 provider,
-                null,
+                android.os.CancellationSignal(),
                 ContextCompat.getMainExecutor(appContext)
-            ) { location -> finish(location ?: fallback) }
+            ) { location: Location? -> finish(location ?: fallback) }
         }.onFailure {
             finish(fallback)
         }
