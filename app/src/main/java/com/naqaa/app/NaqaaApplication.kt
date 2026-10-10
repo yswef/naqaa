@@ -11,10 +11,8 @@ class NaqaaApplication : Application() {
 
     override fun onCreate() {
         super.onCreate()
-        // The recorder and the launch marker come first: anything below can fail without
-        // taking the explanation with it.
+        // Install the crash recorder before other startup work can fail.
         CrashLog.install(this)
-        CrashLog.sessionStarted(this)
         runCatching { Notices.channels(this) }
         runCatching { Content.load(this) }
     }

@@ -33,6 +33,7 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.material3.OutlinedTextField
 import com.naqaa.app.R
+import com.naqaa.app.ui.theme.NaqaaOutlinedTextFieldColors
 import com.naqaa.app.data.Preferences
 import com.naqaa.app.ui.BiometricUnlock
 import com.naqaa.app.ui.PinGate
@@ -159,6 +160,7 @@ fun PinPrompt(preferences: Preferences, onCancel: () -> Unit, onSuccess: () -> U
         text = {
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 OutlinedTextField(
+                colors = NaqaaOutlinedTextFieldColors(),
                     value = pin,
                     onValueChange = { value -> if (value.length <= PinGate.PIN_LENGTH) pin = value.filter(Char::isDigit) },
                     singleLine = true,

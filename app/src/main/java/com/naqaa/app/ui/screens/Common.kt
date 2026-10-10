@@ -1,5 +1,6 @@
 package com.naqaa.app.ui.screens
 
+import android.os.Build
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
@@ -11,20 +12,30 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.naqaa.app.R
 import com.naqaa.app.content.Card as ContentCard
 import com.naqaa.app.prayer.PrayerName
+import com.naqaa.app.util.SystemGate
 
-/** Shared building blocks. Small, plain, and without any meaning of their own. */
+/** Shared UI components. */
 
 @Composable
 fun SectionCard(
@@ -94,24 +105,28 @@ fun SettingSwitch(title: String, subtitle: String? = null, checked: Boolean, onC
 }
 
 @Composable
-fun ActionButton(title: String, subtitle: String? = null, enabled: Boolean = true, onClick: () -> Unit) {
-    Column(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
-        OutlinedButton(onClick = onClick, enabled = enabled, modifier = Modifier.fillMaxWidth()) {
-            Text(text = title)
+fun rememberResumeToken(): Int {
+    val lifecycleOwner = LocalLifecycleOwner.current
+    var token by remember { mutableIntStateOf(0) }
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) token += 1
         }
-        if (subtitle != null) {
-            Text(
-                text = subtitle,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(top = 4.dp, start = 4.dp, end = 4.dp)
-            )
-        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
+    return token
 }
 
 @Composable
-fun PermissionRow(title: String, granted: Boolean, grantedText: String, missingText: String, onEnable: () -> Unit) {
+fun PermissionRow(
+    title: String,
+    granted: Boolean,
+    grantedText: String,
+    missingText: String,
+    actionText: String? = null,
+    onEnable: () -> Unit
+) {
     Row(
         modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp),
         verticalAlignment = Alignment.CenterVertically
@@ -125,7 +140,79 @@ fun PermissionRow(title: String, granted: Boolean, grantedText: String, missingT
             )
         }
         if (!granted) {
-            TextButton(onClick = onEnable) { Text(text = grantedText) }
+            TextButton(onClick = onEnable) {
+                Text(text = actionText ?: stringResource(R.string.permission_enable))
+            }
+        }
+    }
+}
+
+@Composable
+fun AccessibilityPermissionRow() {
+    val context = LocalContext.current
+    var attempted by remember { mutableStateOf(false) }
+    val resumeToken = rememberResumeToken()
+    val enabled = remember(resumeToken) { SystemGate.accessibilityEnabled(context) }
+    Column {
+        PermissionRow(
+            title = stringResource(R.string.permission_accessibility),
+            granted = enabled,
+            grantedText = stringResource(R.string.permission_enabled),
+            missingText = stringResource(R.string.permission_needed),
+            onEnable = {
+                attempted = true
+                SystemGate.openSettings(context, SystemGate.accessibilitySettings())
+            }
+        )
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && attempted && !enabled) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    text = stringResource(R.string.accessibility_restricted_hint),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.weight(1f)
+                )
+                TextButton(onClick = {
+                    SystemGate.openSettings(context, SystemGate.appDetailsSettings(context))
+                }) {
+                    Text(text = stringResource(R.string.permission_app_info))
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun BatteryPermissionRow() {
+    val context = LocalContext.current
+    var attempted by remember { mutableStateOf(false) }
+    val resumeToken = rememberResumeToken()
+    val enabled = remember(resumeToken) { SystemGate.ignoringBatteryOptimizations(context) }
+    Column {
+        PermissionRow(
+            title = stringResource(R.string.permission_battery),
+            granted = enabled,
+            grantedText = stringResource(R.string.permission_enabled),
+            missingText = stringResource(R.string.permission_needed),
+            onEnable = {
+                attempted = true
+                SystemGate.openSettings(context, SystemGate.batterySettings(context))
+            }
+        )
+        if (attempted && !enabled) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    text = stringResource(R.string.battery_exemption_hint),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.weight(1f)
+                )
+                TextButton(onClick = {
+                    SystemGate.openSettings(context, SystemGate.appDetailsSettings(context))
+                }) {
+                    Text(text = stringResource(R.string.permission_app_info))
+                }
+            }
         }
     }
 }

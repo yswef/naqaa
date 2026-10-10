@@ -3,6 +3,27 @@
 All notable changes to this project are recorded here. The format follows the usual
 sections: added, changed, fixed and removed.
 
+## Unreleased
+
+### Fixed
+
+- City search now matches Arabic and English city and country names, including Yemen, and
+  the location picker requests a fresh one-time fix when no recent fix is cached.
+- The setup and prayer screens show clear location progress and fallback messages instead of
+  silently leaving the city unchanged; the setup screen now scrolls on shorter displays.
+- The crash report labels version, Android and processor information as diagnostic metadata,
+  so it is not mistaken for the cause of a failure; fresh launches no longer report themselves
+  as interrupted.
+- VPN filtering starts after consent, and permission shortcuts use app-specific system pages
+  with an app-info fallback. Android 13+ notifications use the runtime permission prompt.
+
+### Changed
+
+- Button labels and input fields have clearer contrast. The adhkar list is now a step-by-step
+  counter that advances through the selected morning or evening set.
+- Permission labels and setup copy are shorter; the prayer screen keeps location selection
+  optional and city search available as a fallback.
+
 ## 1.0.8 - 2026-10-07
 
 ### Added

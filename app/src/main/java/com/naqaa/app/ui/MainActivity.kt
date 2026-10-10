@@ -67,6 +67,9 @@ class MainActivity : ComponentActivity() {
             return
         }
 
+        // Start tracking only after checking for an earlier incomplete launch. Writing the
+        // marker from Application.onCreate made every fresh launch look like a previous crash.
+        CrashLog.sessionStarted(this)
         val preferences = runCatching { (application as NaqaaApplication).graph.current() }.getOrDefault(Preferences())
         PersonaSwitch.apply(this, preferences.persona)
         requestedScreen = requested(intent)

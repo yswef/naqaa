@@ -54,6 +54,15 @@ fun CrashReportScreen(report: CrashLog.Report, onContinue: () -> Unit) {
                 ),
                 style = MaterialTheme.typography.titleMedium
             )
+            Spacer(Modifier.height(4.dp))
+            Text(
+                text = stringResource(
+                    if (report.kind == CrashLog.Kind.EXCEPTION) R.string.crash_diagnostic_note
+                    else R.string.crash_interrupted_note
+                ),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
             Spacer(Modifier.height(8.dp))
             SectionCard {
                 Text(text = report.text, style = MaterialTheme.typography.bodySmall)

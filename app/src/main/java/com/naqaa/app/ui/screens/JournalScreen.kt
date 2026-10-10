@@ -26,6 +26,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.naqaa.app.R
+import com.naqaa.app.ui.theme.NaqaaOutlinedTextFieldColors
 import com.naqaa.app.content.Content
 import com.naqaa.app.data.EventKind
 import com.naqaa.app.data.Feeling
@@ -166,6 +167,7 @@ private fun Details(viewModel: AppViewModel, onBack: () -> Unit) {
         }
         SectionCard(title = stringResource(R.string.journal_note)) {
             OutlinedTextField(
+                colors = NaqaaOutlinedTextFieldColors(),
                 value = note,
                 onValueChange = { value -> if (value.length <= 500) note = value },
                 modifier = Modifier.fillMaxWidth(),

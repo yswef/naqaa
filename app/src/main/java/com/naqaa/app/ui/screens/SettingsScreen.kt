@@ -28,6 +28,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import com.naqaa.app.R
+import com.naqaa.app.ui.theme.NaqaaOutlinedTextFieldColors
 import com.naqaa.app.data.Persona
 import com.naqaa.app.data.PinHasher
 import com.naqaa.app.data.Preferences
@@ -132,6 +133,7 @@ fun SettingsScreen(viewModel: AppViewModel, state: UiState) {
             var name by remember(preferences.trustedName) { mutableStateOf(preferences.trustedName) }
             var phone by remember(preferences.trustedPhone) { mutableStateOf(preferences.trustedPhone) }
             OutlinedTextField(
+                colors = NaqaaOutlinedTextFieldColors(),
                 value = name,
                 onValueChange = { name = it },
                 label = { Text(text = stringResource(R.string.settings_trusted_name)) },
@@ -140,6 +142,7 @@ fun SettingsScreen(viewModel: AppViewModel, state: UiState) {
             )
             Spacer(Modifier.height(8.dp))
             OutlinedTextField(
+                colors = NaqaaOutlinedTextFieldColors(),
                 value = phone,
                 onValueChange = { phone = it.filter { character -> character.isDigit() || character == '+' || character == ' ' } },
                 label = { Text(text = stringResource(R.string.settings_trusted_phone)) },
@@ -158,6 +161,7 @@ fun SettingsScreen(viewModel: AppViewModel, state: UiState) {
         SectionCard(title = stringResource(R.string.settings_reason)) {
             var reason by remember(preferences.reason) { mutableStateOf(preferences.reason) }
             OutlinedTextField(
+                colors = NaqaaOutlinedTextFieldColors(),
                 value = reason,
                 onValueChange = { value -> if (value.length <= 400) reason = value },
                 minLines = 3,
@@ -265,6 +269,7 @@ fun SettingsScreen(viewModel: AppViewModel, state: UiState) {
                     if (eraseStep == 1 && preferences.hasPin) {
                         Spacer(Modifier.height(8.dp))
                         OutlinedTextField(
+                            colors = NaqaaOutlinedTextFieldColors(),
                             value = confirmPin,
                             onValueChange = { confirmPin = it.filter(Char::isDigit) },
                             singleLine = true,
@@ -315,6 +320,7 @@ private fun PinSetupDialog(
             Column {
                 if (preferences.hasPin) {
                     OutlinedTextField(
+                        colors = NaqaaOutlinedTextFieldColors(),
                         value = current,
                         onValueChange = { current = it.filter(Char::isDigit) },
                         singleLine = true,
@@ -325,6 +331,7 @@ private fun PinSetupDialog(
                     Spacer(Modifier.height(8.dp))
                 }
                 OutlinedTextField(
+                    colors = NaqaaOutlinedTextFieldColors(),
                     value = next,
                     onValueChange = { next = it.filter(Char::isDigit) },
                     singleLine = true,
@@ -334,6 +341,7 @@ private fun PinSetupDialog(
                 )
                 Spacer(Modifier.height(8.dp))
                 OutlinedTextField(
+                    colors = NaqaaOutlinedTextFieldColors(),
                     value = repeat,
                     onValueChange = { repeat = it.filter(Char::isDigit) },
                     singleLine = true,

@@ -2,10 +2,8 @@ package com.naqaa.app.ui.screens
 
 import android.Manifest
 import android.app.Activity
-import android.content.Intent
 import android.content.pm.PackageManager
-import android.location.LocationManager
-import android.net.VpnService
+import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Column
@@ -15,13 +13,17 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -31,6 +33,7 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
@@ -38,6 +41,7 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import com.naqaa.app.R
+import com.naqaa.app.ui.theme.NaqaaOutlinedTextFieldColors
 import com.naqaa.app.data.LockRule
 import com.naqaa.app.data.PinHasher
 import com.naqaa.app.prayer.CalculationMethod
@@ -46,17 +50,12 @@ import com.naqaa.app.prayer.City
 import com.naqaa.app.ui.AppViewModel
 import com.naqaa.app.ui.BiometricUnlock
 import com.naqaa.app.ui.PinGate
+import com.naqaa.app.ui.rememberVpnStartAction
 import com.naqaa.app.util.LocaleX
+import com.naqaa.app.util.OneTimeLocation
 import com.naqaa.app.util.SystemGate
-import com.naqaa.app.vpn.DnsVpnService
 
-/**
- * The setup walk, one decision per screen.
- *
- * Permissions are asked for one by one with a sentence explaining what each is for, and the
- * walk can be finished even when something is refused: the application works with less, and
- * the remaining switches stay reachable from the protection screen.
- */
+/** First-run setup for the app's main preferences. */
 @Composable
 fun OnboardingScreen(viewModel: AppViewModel) {
     val context = LocalContext.current
@@ -68,6 +67,7 @@ fun OnboardingScreen(viewModel: AppViewModel) {
     var trustedName by remember { mutableStateOf(preferences.trustedName) }
     var trustedPhone by remember { mutableStateOf(preferences.trustedPhone) }
     var pendingCity by remember { mutableStateOf<City?>(Cities.byId(preferences.cityId)) }
+    val stepScrollState = remember(step) { ScrollState(0) }
 
     Column(
         modifier = Modifier.fillMaxSize().padding(20.dp)
@@ -77,15 +77,23 @@ fun OnboardingScreen(viewModel: AppViewModel) {
             modifier = Modifier.fillMaxWidth()
         )
         Spacer(Modifier.height(18.dp))
-        Column(modifier = Modifier.weight(1f)) {
+        Column(
+            modifier = Modifier
+                .weight(1f)
+                .fillMaxWidth()
+                .verticalScroll(stepScrollState)
+        ) {
             when (step) {
                 0 -> StepLanguage(viewModel)
                 1 -> StepReason(reason, { reason = it })
-                2 -> StepCity(pendingCity) { pendingCity = it }
-                3 -> StepLocation { pendingCity = it }
-                4 -> StepPermissions()
-                5 -> StepApps(viewModel)
-                6 -> StepPin(
+                2 -> StepCity(
+                    city = pendingCity,
+                    language = preferences.language,
+                    onCity = { pendingCity = it }
+                )
+                3 -> StepPermissions(viewModel)
+                4 -> StepApps(viewModel)
+                5 -> StepPin(
                     pin = pin,
                     pinRepeat = pinRepeat,
                     onPin = { pin = it },
@@ -163,6 +171,7 @@ private fun StepReason(reason: String, onReason: (String) -> Unit) {
         Text(text = stringResource(R.string.onboarding_reason_body), style = MaterialTheme.typography.bodyMedium)
         Spacer(Modifier.height(12.dp))
         OutlinedTextField(
+            colors = NaqaaOutlinedTextFieldColors(),
             value = reason,
             onValueChange = { value -> if (value.length <= 400) onReason(value) },
             minLines = 4,
@@ -171,139 +180,187 @@ private fun StepReason(reason: String, onReason: (String) -> Unit) {
     }
 }
 
+private enum class LocationPickerStatus { IDLE, LOADING, FOUND, UNAVAILABLE }
+
 @Composable
-private fun StepCity(city: City?, onCity: (City?) -> Unit) {
+private fun StepCity(city: City?, language: String, onCity: (City?) -> Unit) {
+    val context = LocalContext.current
     var query by remember { mutableStateOf("") }
-    val results = remember(query) {
-        if (query.isBlank()) Cities.all.take(12)
-        else Cities.all.filter { it.nameAr.contains(query) || it.nameEn.contains(query, true) }
+    var status by remember { mutableStateOf(LocationPickerStatus.IDLE) }
+    val results = remember(query) { Cities.search(query) }
+    val permission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        if (!granted) {
+            status = LocationPickerStatus.UNAVAILABLE
+        } else {
+            status = LocationPickerStatus.LOADING
+            OneTimeLocation.request(context) { location ->
+                if (location == null) {
+                    status = LocationPickerStatus.UNAVAILABLE
+                } else {
+                    val nearest = Cities.nearest(location.latitude, location.longitude)
+                    onCity(nearest)
+                    status = LocationPickerStatus.FOUND
+                }
+            }
+        }
     }
+
     Column {
         Text(text = stringResource(R.string.onboarding_city_title), style = MaterialTheme.typography.headlineSmall)
         Spacer(Modifier.height(8.dp))
         Text(text = stringResource(R.string.onboarding_city_body), style = MaterialTheme.typography.bodyMedium)
         Spacer(Modifier.height(12.dp))
+        Button(
+            onClick = { permission.launch(Manifest.permission.ACCESS_COARSE_LOCATION) },
+            enabled = status != LocationPickerStatus.LOADING,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            if (status == LocationPickerStatus.LOADING) {
+                CircularProgressIndicator(
+                    modifier = Modifier.size(18.dp),
+                    color = MaterialTheme.colorScheme.onPrimary,
+                    strokeWidth = 2.dp
+                )
+                Spacer(Modifier.width(8.dp))
+            }
+            Text(
+                text = stringResource(
+                    if (status == LocationPickerStatus.LOADING) R.string.onboarding_location_loading
+                    else R.string.onboarding_location_action
+                )
+            )
+        }
+        when (status) {
+            LocationPickerStatus.LOADING -> Unit
+            LocationPickerStatus.FOUND -> Text(
+                text = stringResource(R.string.onboarding_location_found),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.padding(top = 6.dp)
+            )
+            LocationPickerStatus.UNAVAILABLE -> Text(
+                text = stringResource(R.string.onboarding_location_unavailable),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.error,
+                modifier = Modifier.padding(top = 6.dp)
+            )
+            LocationPickerStatus.IDLE -> if (ContextCompat.checkSelfPermission(
+                    context,
+                    Manifest.permission.ACCESS_COARSE_LOCATION
+                ) == PackageManager.PERMISSION_GRANTED
+            ) {
+                Text(
+                    text = stringResource(R.string.onboarding_location_again),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(top = 6.dp)
+                )
+            }
+        }
+        Spacer(Modifier.height(8.dp))
+        Text(
+            text = city?.let { stringResource(R.string.onboarding_city_selected, it.displayLabel(language)) }
+                ?: stringResource(R.string.onboarding_city_none),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Spacer(Modifier.height(8.dp))
         OutlinedTextField(
+            colors = NaqaaOutlinedTextFieldColors(),
             value = query,
             onValueChange = { query = it },
             singleLine = true,
             label = { Text(text = stringResource(R.string.search)) },
+            placeholder = { Text(text = stringResource(R.string.city_search_hint)) },
             modifier = Modifier.fillMaxWidth()
         )
-        Spacer(Modifier.height(10.dp))
-        Text(
-            text = city?.let { stringResource(R.string.onboarding_city_selected, it.nameAr) }
-                ?: stringResource(R.string.onboarding_city_none),
-            style = MaterialTheme.typography.bodyMedium
-        )
-        Spacer(Modifier.height(10.dp))
-        LazyColumn(modifier = Modifier.fillMaxWidth().height(320.dp)) {
-            items(results, key = { it.id }) { option ->
-                TextButton(onClick = { onCity(option) }, modifier = Modifier.fillMaxWidth()) {
-                    Text(text = "${option.nameAr} - ${option.countryAr}")
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun StepLocation(onCity: (City) -> Unit) {
-    val context = LocalContext.current
-    var refused by remember { mutableStateOf(false) }
-    val permission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
-        refused = !granted
-        if (granted) {
-            val manager = context.getSystemService(LocationManager::class.java)
-            val last = runCatching {
-                manager.getProviders(true).firstNotNullOfOrNull { provider -> manager.getLastKnownLocation(provider) }
-            }.getOrNull()
-            if (last != null) onCity(Cities.nearest(last.latitude, last.longitude)) else refused = true
-        }
-    }
-    Column {
-        Text(text = stringResource(R.string.onboarding_location_title), style = MaterialTheme.typography.headlineSmall)
-        Spacer(Modifier.height(8.dp))
-        Text(text = stringResource(R.string.onboarding_location_body), style = MaterialTheme.typography.bodyMedium)
-        Spacer(Modifier.height(14.dp))
-        OutlinedButton(
-            onClick = { permission.launch(Manifest.permission.ACCESS_COARSE_LOCATION) },
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Text(text = stringResource(R.string.onboarding_location_action))
-        }
-        if (ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_COARSE_LOCATION) ==
-            PackageManager.PERMISSION_GRANTED
-        ) {
-            Spacer(Modifier.height(8.dp))
+        Spacer(Modifier.height(6.dp))
+        if (results.isEmpty()) {
             Text(
-                text = stringResource(R.string.onboarding_location_again),
+                text = stringResource(R.string.city_no_results),
                 style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(vertical = 12.dp)
             )
-        }
-        if (refused) {
-            Spacer(Modifier.height(8.dp))
-            Text(
-                text = stringResource(R.string.onboarding_location_refused),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        }
-    }
-}
-
-@Composable
-private fun StepPermissions() {
-    val context = LocalContext.current
-    Column {
-        Text(text = stringResource(R.string.onboarding_permissions_title), style = MaterialTheme.typography.headlineSmall)
-        Spacer(Modifier.height(8.dp))
-        Text(text = stringResource(R.string.onboarding_permissions_body), style = MaterialTheme.typography.bodyMedium)
-        Spacer(Modifier.height(12.dp))
-        val vpnMissing = remember { VpnService.prepare(context) != null }
-        ActionButton(
-            title = stringResource(R.string.protection_filter),
-            subtitle = stringResource(R.string.onboarding_permission_vpn),
-            onClick = {
-                val consent = VpnService.prepare(context)
-                if (consent != null) {
-                    runCatching { context.startActivity(consent) }
-                } else {
-                    runCatching {
-                        androidx.core.content.ContextCompat.startForegroundService(
-                            context,
-                            Intent(context, DnsVpnService::class.java)
-                        )
+        } else {
+            LazyColumn(modifier = Modifier.fillMaxWidth().height(220.dp)) {
+                items(results, key = { it.id }) { option ->
+                    TextButton(
+                        onClick = {
+                            onCity(option)
+                            status = LocationPickerStatus.IDLE
+                        },
+                        enabled = status != LocationPickerStatus.LOADING,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text(text = option.displayLabel(language), maxLines = 2)
                     }
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun StepPermissions(viewModel: AppViewModel) {
+    val context = LocalContext.current
+    val resumeToken = rememberResumeToken()
+    val notificationsGranted = remember(resumeToken) { SystemGate.notificationsEnabled(context) }
+    val adminEnabled = remember(resumeToken) { SystemGate.isDeviceAdmin(context) }
+    val alarmsEnabled = remember(resumeToken) { SystemGate.canScheduleExactAlarms(context) }
+    var notificationDenied by remember { mutableStateOf(false) }
+    val notificationPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        notificationDenied = !granted || !SystemGate.notificationsEnabled(context)
+    }
+    val notificationPermissionGranted = Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+        ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
+    val showNotificationPrompt = Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+        !notificationDenied && !notificationPermissionGranted
+    val startVpn = rememberVpnStartAction()
+    val vpnRunning = viewModel.state.value.vpnRunning
+
+    Column {
+        Text(text = stringResource(R.string.onboarding_permissions_title), style = MaterialTheme.typography.headlineSmall)
+        Spacer(Modifier.height(12.dp))
+        PermissionRow(
+            title = stringResource(R.string.protection_filter),
+            granted = vpnRunning,
+            grantedText = stringResource(R.string.permission_enabled),
+            missingText = stringResource(R.string.permission_needed),
+            onEnable = startVpn
         )
-        ActionButton(
-            title = stringResource(R.string.permission_accessibility),
-            subtitle = stringResource(R.string.onboarding_permission_accessibility),
-            onClick = { runCatching { context.startActivity(SystemGate.accessibilitySettings()) } }
-        )
-        ActionButton(
+        AccessibilityPermissionRow()
+        PermissionRow(
             title = stringResource(R.string.permission_admin),
-            subtitle = stringResource(R.string.onboarding_permission_admin),
-            onClick = { runCatching { context.startActivity(SystemGate.deviceAdminRequest(context)) } }
+            granted = adminEnabled,
+            grantedText = stringResource(R.string.permission_enabled),
+            missingText = stringResource(R.string.permission_needed),
+            onEnable = { SystemGate.openSettings(context, SystemGate.deviceAdminRequest(context)) }
         )
-        ActionButton(
+        PermissionRow(
             title = stringResource(R.string.permission_notifications),
-            subtitle = stringResource(R.string.onboarding_permission_notifications),
-            onClick = { runCatching { context.startActivity(SystemGate.notificationSettings(context)) } }
+            granted = notificationsGranted,
+            grantedText = stringResource(R.string.permission_enabled),
+            missingText = stringResource(R.string.permission_needed),
+            actionText = stringResource(
+                if (showNotificationPrompt) R.string.permission_enable else R.string.permission_settings
+            ),
+            onEnable = {
+                if (showNotificationPrompt) {
+                    notificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
+                } else {
+                    SystemGate.openSettings(context, SystemGate.notificationSettings(context))
+                }
+            }
         )
-        ActionButton(
+        PermissionRow(
             title = stringResource(R.string.permission_alarms),
-            subtitle = stringResource(R.string.onboarding_permission_alarms),
-            onClick = { runCatching { context.startActivity(SystemGate.exactAlarmSettings()) } }
+            granted = alarmsEnabled,
+            grantedText = stringResource(R.string.permission_enabled),
+            missingText = stringResource(R.string.permission_needed),
+            onEnable = { SystemGate.openSettings(context, SystemGate.exactAlarmSettings(context)) }
         )
-        ActionButton(
-            title = stringResource(R.string.permission_battery),
-            subtitle = stringResource(R.string.onboarding_permission_battery),
-            onClick = { runCatching { context.startActivity(SystemGate.batterySettings()) } }
-        )
+        BatteryPermissionRow()
     }
 }
 
@@ -361,6 +418,7 @@ private fun StepPin(
         Text(text = stringResource(R.string.onboarding_pin_body), style = MaterialTheme.typography.bodyMedium)
         Spacer(Modifier.height(12.dp))
         OutlinedTextField(
+            colors = NaqaaOutlinedTextFieldColors(),
             value = pin,
             onValueChange = { value -> onPin(value.filter(Char::isDigit).take(12)) },
             singleLine = true,
@@ -370,6 +428,7 @@ private fun StepPin(
         )
         Spacer(Modifier.height(8.dp))
         OutlinedTextField(
+            colors = NaqaaOutlinedTextFieldColors(),
             value = pinRepeat,
             onValueChange = { value -> onRepeat(value.filter(Char::isDigit).take(12)) },
             singleLine = true,
@@ -410,6 +469,7 @@ private fun StepContact(
         Text(text = stringResource(R.string.onboarding_contact_body), style = MaterialTheme.typography.bodyMedium)
         Spacer(Modifier.height(12.dp))
         OutlinedTextField(
+            colors = NaqaaOutlinedTextFieldColors(),
             value = name,
             onValueChange = onName,
             singleLine = true,
@@ -418,6 +478,7 @@ private fun StepContact(
         )
         Spacer(Modifier.height(8.dp))
         OutlinedTextField(
+            colors = NaqaaOutlinedTextFieldColors(),
             value = phone,
             onValueChange = { value -> onPhone(value.filter { it.isDigit() || it == '+' || it == ' ' }) },
             singleLine = true,
@@ -454,4 +515,4 @@ private fun finish(
     viewModel.refresh()
 }
 
-private const val STEPS = 8
+private const val STEPS = 7

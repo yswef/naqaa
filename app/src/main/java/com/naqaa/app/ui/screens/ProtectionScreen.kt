@@ -1,7 +1,11 @@
 package com.naqaa.app.ui.screens
 
+import android.Manifest
 import android.content.Intent
-import android.net.VpnService
+import android.content.pm.PackageManager
+import android.os.Build
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.lazy.LazyColumn
@@ -28,30 +32,39 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import androidx.core.content.ContextCompat
 import com.naqaa.app.R
 import com.naqaa.app.data.LockRule
 import com.naqaa.app.guard.DelayGate
 import com.naqaa.app.ui.AppViewModel
 import com.naqaa.app.ui.DelayActivity
 import com.naqaa.app.ui.UiState
+import com.naqaa.app.ui.rememberVpnStartAction
 import com.naqaa.app.util.LocaleX
 import com.naqaa.app.util.SystemGate
 import com.naqaa.app.util.TimeX
-import com.naqaa.app.vpn.DnsVpnService
 import com.naqaa.app.vpn.VpnState
 
-/**
- * Everything that stands between the user and the content: the local filter, the short
- * video rules, the locks, the night window and the permissions without which none of it
- * works. State is shown as it is, including the honest note that an application cannot
- * forbid its own removal.
- */
+/** Local filtering, app locks, schedules, and permission status. */
 @Composable
 fun ProtectionScreen(viewModel: AppViewModel, state: UiState) {
     val context = LocalContext.current
     val language = state.preferences.language
     val display = LocaleX.displayLocale(language)
     var showPicker by remember { mutableStateOf(false) }
+    val resumeToken = rememberResumeToken()
+    val startVpn = rememberVpnStartAction()
+    var notificationDenied by remember { mutableStateOf(false) }
+    val notificationPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        notificationDenied = !granted || !SystemGate.notificationsEnabled(context)
+    }
+    val notificationPermissionGranted = Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+        ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
+    val showNotificationPrompt = Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+        !notificationDenied && !notificationPermissionGranted
+    val notificationsGranted = remember(resumeToken) { SystemGate.notificationsEnabled(context) }
+    val adminEnabled = remember(resumeToken) { SystemGate.isDeviceAdmin(context) }
+    val alarmsEnabled = remember(resumeToken) { SystemGate.canScheduleExactAlarms(context) }
 
     Column(modifier = Modifier.padding(horizontal = 16.dp)) {
         ScreenTitle(title = stringResource(R.string.protection_title), subtitle = stringResource(R.string.protection_subtitle))
@@ -80,19 +93,7 @@ fun ProtectionScreen(viewModel: AppViewModel, state: UiState) {
                 }
             } else {
                 Button(
-                    onClick = {
-                        val consent = VpnService.prepare(context)
-                        if (consent != null) {
-                            runCatching { context.startActivity(consent) }
-                        } else {
-                            runCatching {
-                                androidx.core.content.ContextCompat.startForegroundService(
-                                    context,
-                                    Intent(context, DnsVpnService::class.java)
-                                )
-                            }
-                        }
-                    },
+                    onClick = startVpn,
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Text(text = stringResource(R.string.protection_start))
@@ -114,7 +115,7 @@ fun ProtectionScreen(viewModel: AppViewModel, state: UiState) {
                 )
                 Spacer(Modifier.height(8.dp))
                 OutlinedButton(
-                    onClick = { runCatching { context.startActivity(SystemGate.privateDnsSettings()) } },
+                    onClick = { SystemGate.openSettings(context, SystemGate.privateDnsSettings()) },
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Text(text = stringResource(R.string.protection_open_settings))
@@ -211,41 +212,38 @@ fun ProtectionScreen(viewModel: AppViewModel, state: UiState) {
         }
 
         SectionCard(title = stringResource(R.string.protection_permissions)) {
-            PermissionRow(
-                title = stringResource(R.string.permission_accessibility),
-                granted = SystemGate.accessibilityEnabled(context),
-                grantedText = stringResource(R.string.permission_enabled),
-                missingText = stringResource(R.string.permission_needed),
-                onEnable = { runCatching { context.startActivity(SystemGate.accessibilitySettings()) } }
-            )
+            AccessibilityPermissionRow()
             PermissionRow(
                 title = stringResource(R.string.permission_admin),
-                granted = SystemGate.isDeviceAdmin(context),
+                granted = adminEnabled,
                 grantedText = stringResource(R.string.permission_enabled),
                 missingText = stringResource(R.string.permission_needed),
-                onEnable = { runCatching { context.startActivity(SystemGate.deviceAdminRequest(context)) } }
+                onEnable = { SystemGate.openSettings(context, SystemGate.deviceAdminRequest(context)) }
             )
             PermissionRow(
                 title = stringResource(R.string.permission_notifications),
-                granted = SystemGate.notificationsEnabled(context),
+                granted = notificationsGranted,
                 grantedText = stringResource(R.string.permission_enabled),
                 missingText = stringResource(R.string.permission_needed),
-                onEnable = { runCatching { context.startActivity(SystemGate.notificationSettings(context)) } }
+                actionText = stringResource(
+                    if (showNotificationPrompt) R.string.permission_enable else R.string.permission_settings
+                ),
+                onEnable = {
+                    if (showNotificationPrompt) {
+                        notificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
+                    } else {
+                        SystemGate.openSettings(context, SystemGate.notificationSettings(context))
+                    }
+                }
             )
             PermissionRow(
                 title = stringResource(R.string.permission_alarms),
-                granted = SystemGate.canScheduleExactAlarms(context),
+                granted = alarmsEnabled,
                 grantedText = stringResource(R.string.permission_enabled),
                 missingText = stringResource(R.string.permission_needed),
-                onEnable = { runCatching { context.startActivity(SystemGate.exactAlarmSettings()) } }
+                onEnable = { SystemGate.openSettings(context, SystemGate.exactAlarmSettings(context)) }
             )
-            PermissionRow(
-                title = stringResource(R.string.permission_battery),
-                granted = SystemGate.ignoringBatteryOptimizations(context),
-                grantedText = stringResource(R.string.permission_enabled),
-                missingText = stringResource(R.string.permission_needed),
-                onEnable = { runCatching { context.startActivity(SystemGate.batterySettings()) } }
-            )
+            BatteryPermissionRow()
             Spacer(Modifier.height(6.dp))
             Text(
                 text = stringResource(R.string.admin_explanation),
