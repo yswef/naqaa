@@ -306,8 +306,8 @@ jobs:
             } > "$RUNNER_TEMP/notes.md"
           else
             {
-              printf 'هذا الملف موقّع بمفتاح النشر الدائم، فنسخة سابقة موقّعة بالمفتاح نفسه تُحدَّث في مكانها دون إزالة. الإصدارات حتى 1.0.8 وُقّعت بمفاتيح جولات مؤقتة ولا تُحدَّث في مكانها إن كان مفتاحها مختلفا.\n\n'
-              printf 'This file is signed with the durable release key, so a previous copy signed with the same key updates in place. Releases up to 1.0.8 were signed with per-run keys and do not update in place when their key differs.\n\n'
+              printf 'هذا الملف موقّع بمفتاح النشر الدائم، فنسخة لاحقة موقّعة بالمفتاح نفسه ستُحدَّث في مكانها دون إزالة. من ينتقل من 1.0.8 أو أقدم: تلك الإصدارات وُقّعت بمفاتيح جولات مؤقتة، ولن يقبل أندرويد هذا الملف تحديثا فوقها، بل أزل النسخة القديمة أولا — وتذكّر أن الإزالة تمحو اليومية المشفرة مع التطبيق، فاحفظ تقرير PDF قبلها إن كان يهمك.\n\n'
+              printf 'This file is signed with the durable release key, so later releases signed with the same key will update in place. Moving up from 1.0.8 or older is different: those releases were signed with per-run keys, Android will not accept this file as an update over them, and the old copy must be removed first — removing it deletes the encrypted journal, so export the PDF report beforehand if it matters to you.\n\n'
             } > "$RUNNER_TEMP/notes.md"
           fi
           {
