@@ -47,9 +47,12 @@ previous version, and an uninstall deletes the journal. Create one keystore with
 -genkeypair` on a computer, then add its four values as repository secrets
 (`NAQAA_STORE_BASE64`, `NAQAA_STORE_PASSWORD`, `NAQAA_KEY_ALIAS`, `NAQAA_KEY_PASSWORD`);
 every later release is then signed with the same identity, and updates install over the
-copy that is already on the phone. Read the secrets into the workflow inputs before a
-release run. Keep a copy of the keystore file itself: without it the identity cannot be
-reproduced, and the application cannot be updated in place again.
+copy that is already on the phone. The workflow reads those secrets on every run, and the
+manual dispatch inputs override them for a single run when a different keystore is needed.
+Keep a copy of the keystore file itself: without it the identity cannot be reproduced, and
+the application cannot be updated in place again. A release file signed with a different
+key than the installed copy cannot replace it, so compare the certificate sha-256 of the
+new file with the previous release before publishing.
 
 ## After publishing
 

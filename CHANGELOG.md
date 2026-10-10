@@ -3,10 +3,15 @@
 All notable changes to this project are recorded here. The format follows the usual
 sections: added, changed, fixed and removed.
 
-## Unreleased
+## 1.0.9 - 2026-10-10
 
 ### Fixed
 
+- The local filter no longer loses its session when the underlying network changes its
+  name servers, such as when the phone moves between Wi-Fi and mobile data. The worker
+  being replaced is given the time to finish before its successor starts, only the active
+  worker may end the session, and the restarted session keeps its foreground notice and
+  its running state instead of appearing stopped.
 - City search now matches Arabic and English city and country names, including Yemen, and
   the location picker requests a fresh one-time fix when no recent fix is cached.
 - The setup and prayer screens show clear location progress and fallback messages instead of
@@ -16,6 +21,11 @@ sections: added, changed, fixed and removed.
   as interrupted.
 - VPN filtering starts after consent, and permission shortcuts use app-specific system pages
   with an app-info fallback. Android 13+ notifications use the runtime permission prompt.
+- The release workflow publishes a manual run under the version tag it built instead of a
+  branch name, refuses to replace an existing release, and signs with the NAQAA_*
+  repository secrets when the manual signing inputs are left empty.
+- The device check tests the latest published file when no tag is given, instead of a tag
+  that no longer exists.
 
 ### Changed
 

@@ -66,10 +66,12 @@ jobs:
       - name: Prepare the signing material
         id: signing
         env:
-          KEYSTORE_BASE64: ${{ inputs.keystore_base64 }}
-          STORE_PASSWORD: ${{ inputs.store_password }}
-          KEY_ALIAS: ${{ inputs.key_alias }}
-          KEY_PASSWORD: ${{ inputs.key_password }}
+          # A manual dispatch overrides what is stored; the repository secrets of the same
+          # name are the durable source so every release can carry one identity.
+          KEYSTORE_BASE64: ${{ inputs.keystore_base64 || secrets.NAQAA_STORE_BASE64 }}
+          STORE_PASSWORD: ${{ inputs.store_password || secrets.NAQAA_STORE_PASSWORD }}
+          KEY_ALIAS: ${{ inputs.key_alias || secrets.NAQAA_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ inputs.key_password || secrets.NAQAA_KEY_PASSWORD }}
         run: |
           store_password="$STORE_PASSWORD"
           key_alias="$KEY_ALIAS"
@@ -278,20 +280,38 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           EPHEMERAL: ${{ steps.signing.outputs.ephemeral }}
         run: |
+          # The release is named after the version tag. A run started from a tag keeps that
+          # tag; a manual run started from a branch takes the version it just built, so the
+          # release never lands under a branch name, and it never replaces what exists.
+          case "$GITHUB_REF" in
+            refs/tags/v*) TAG="${GITHUB_REF#refs/tags/}" ;;
+            *)
+              TAG="v$VERSION"
+              if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" > /dev/null 2>&1; then
+                echo "::error ::release $TAG already exists; bump versionName or publish from its tag instead of replacing it"
+                exit 1
+              fi
+              ;;
+          esac
           if [ "$EPHEMERAL" = "true" ]; then
-            printf '%s\n\n' 'The files were signed with a key created for this run, because no signing secret was handed to the workflow. They install normally, but a later release signed with a different key cannot replace them: uninstall the previous copy first, or hand the workflow a durable keystore through the manual dispatch inputs.' > "$RUNNER_TEMP/notes.md"
+            {
+              printf 'إن كانت نسخة أقدم من التطبيق مثبتة على هاتفك فأزلْها أولا ثم ثبّت هذا الملف: هذا الإصدار موقّع بمفتاح وُلّد لهذه الجولة، ولا يقبل أندرويد التحديث فوق ملف موقّع بمفتاح آخر. وإزالة التطبيق تمحو اليومية المشفرة معه.\n\n'
+              printf 'If an older version is installed, remove it first: this file is signed with a key created for this run, and Android does not update over a file signed with a different key. Removing the application deletes its encrypted journal.\n\n'
+              printf '%s\n\n' 'The files were signed with a key created for this run, because no signing secret was handed to the workflow. They install normally, but a later release signed with a different key cannot replace them: uninstall the previous copy first, or hand the workflow a durable keystore through the manual dispatch inputs or the NAQAA_* repository secrets.'
+            } > "$RUNNER_TEMP/notes.md"
           else
-            : > "$RUNNER_TEMP/notes.md"
+            {
+              printf 'هذا الملف موقّع بمفتاح النشر الدائم، فنسخة سابقة موقّعة بالمفتاح نفسه تُحدَّث في مكانها دون إزالة. الإصدارات حتى 1.0.8 وُقّعت بمفاتيح جولات مؤقتة ولا تُحدَّث في مكانها إن كان مفتاحها مختلفا.\n\n'
+              printf 'This file is signed with the durable release key, so a previous copy signed with the same key updates in place. Releases up to 1.0.8 were signed with per-run keys and do not update in place when their key differs.\n\n'
+            } > "$RUNNER_TEMP/notes.md"
           fi
           {
             printf '## التنزيل\n\n'
             printf 'ملف واحد فقط: **Naqaa-%s.apk**. يعمل على كل الهواتف، ٣٢-بت و٦٤-بت، فلا حاجة لمعرفة نوع معالج هاتفك.\n\n' "$VERSION"
             printf 'أندرويد ٨٫٠ أو أحدث. الملف موقّع ومفحوص قبل النشر، وبصمة `sha256` أدناه تكشف أي تنزيل ناقص.\n\n'
-            printf 'إن كانت نسخة أقدم من التطبيق مثبتة على هاتفك فأزلْها أولا ثم ثبّت هذا الملف؛ كل إصدار يوقّع بمفتاح خاص به فلا يقبل أندرويد التثبيت فوق نسخة قديمة.\n\n'
             printf '## Download\n\n'
             printf 'One file: **Naqaa-%s.apk**, for 32-bit and 64-bit phones alike. Android 8.0 or newer.\n\n' "$VERSION"
             printf 'The file is about 1.6 MB. If Android refuses it, note the exact message and the file name and size shown on the phone.\n\n'
-            printf 'If an older version is installed, remove it first: each release is signed with its own key, so Android will not install this file over an older one.\n\n'
             printf 'Checked with `apksigner` and `unzip` before publishing; the sha256 below shows whether a download arrived complete. The build also produces smaller per-architecture files, and those stay in the workflow artifacts instead of this page.\n\n'
             printf 'صِغر الحجم طبيعي: التطبيق لا يحمل صورا ولا إعلانات ولا مكتبات اتصال، والأيقونات والرسوم بصيغة vector، وقائمة الحجب مضغوطة، وكل جزء من المكتبات لا يستدعيه التطبيق يُحذف عند البناء. و«فحص المحتوى» أدناه يعرض ما داخل الملف: عدد مدخلاته، وحجم الكود والموارد والأصول والصوت بعد فك الضغط، وعدد الأصناف البرمجية، وتأكيد وجود كل مكوّن مذكور في البيان.\n\n'
             printf 'The small size is expected: the application carries no images, no advertising and no network libraries, the icons and drawings are vectors, the blocked list is compressed, and the build removes every part of the libraries that the application never calls. The content check below lists what is inside the file: its entries, the unpacked size of the code, the resources, the assets and the sound, how many classes it holds, and that every component named in the manifest is there.\n\n'
@@ -301,7 +321,8 @@ jobs:
             cat "$RUNNER_TEMP/verify.txt"
             printf '```\n'
           } > "$RUNNER_TEMP/release-notes.md"
-          gh release create "${GITHUB_REF_NAME}" "$RUNNER_TEMP/dist/Naqaa-$VERSION.apk" \
+          gh release create "$TAG" "$RUNNER_TEMP/dist/Naqaa-$VERSION.apk" \
             --repo "$GITHUB_REPOSITORY" \
-            --title "Naqaa ${GITHUB_REF_NAME}" \
+            --target "$GITHUB_SHA" \
+            --title "Naqaa $TAG" \
             --notes-file "$RUNNER_TEMP/release-notes.md"
