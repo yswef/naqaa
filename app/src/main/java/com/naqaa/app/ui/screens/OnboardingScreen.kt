@@ -28,7 +28,10 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -59,18 +62,23 @@ import com.naqaa.app.util.SystemGate
 @Composable
 fun OnboardingScreen(viewModel: AppViewModel) {
     val context = LocalContext.current
-    val preferences = viewModel.state.value.preferences
-    var step by remember { mutableIntStateOf(0) }
-    var reason by remember { mutableStateOf(preferences.reason) }
-    var pin by remember { mutableStateOf("") }
-    var pinRepeat by remember { mutableStateOf("") }
-    var trustedName by remember { mutableStateOf(preferences.trustedName) }
-    var trustedPhone by remember { mutableStateOf(preferences.trustedPhone) }
-    var pendingCity by remember { mutableStateOf<City?>(Cities.byId(preferences.cityId)) }
+    val uiState by viewModel.state.collectAsState()
+    val preferences = uiState.preferences
+    // Saved across a rotation or a change of theme, which recreate the screen: without this
+    // the setup went back to its first step and lost what had been typed.
+    var step by rememberSaveable { mutableIntStateOf(0) }
+    var reason by rememberSaveable { mutableStateOf(preferences.reason) }
+    var pin by rememberSaveable { mutableStateOf("") }
+    var pinRepeat by rememberSaveable { mutableStateOf("") }
+    var trustedName by rememberSaveable { mutableStateOf(preferences.trustedName) }
+    var trustedPhone by rememberSaveable { mutableStateOf(preferences.trustedPhone) }
+    var pendingCityId by rememberSaveable { mutableStateOf(preferences.cityId) }
+    val pendingCity: City? = Cities.byId(pendingCityId)
     val stepScrollState = remember(step) { ScrollState(0) }
+    val pinProblem = pin.isNotEmpty() && (pin.length != PinGate.PIN_LENGTH || pin != pinRepeat)
 
     Column(
-        modifier = Modifier.fillMaxSize().padding(20.dp)
+        modifier = Modifier.fillMaxSize().safeDrawingPadding().padding(20.dp)
     ) {
         LinearProgressIndicator(
             progress = { (step + 1).toFloat() / STEPS },
@@ -89,7 +97,7 @@ fun OnboardingScreen(viewModel: AppViewModel) {
                 2 -> StepCity(
                     city = pendingCity,
                     language = preferences.language,
-                    onCity = { pendingCity = it }
+                    onCity = { pendingCityId = it?.id.orEmpty() }
                 )
                 3 -> StepPermissions(viewModel)
                 4 -> StepApps(viewModel)
@@ -110,7 +118,7 @@ fun OnboardingScreen(viewModel: AppViewModel) {
                 TextButton(onClick = { step -= 1 }) { Text(text = stringResource(R.string.back)) }
             }
             Spacer(Modifier.weight(1f))
-            Button(onClick = {
+            Button(enabled = !(step == PIN_STEP && pinProblem), onClick = {
                 if (step < STEPS - 1) {
                     step += 1
                 } else {
@@ -133,7 +141,8 @@ fun OnboardingScreen(viewModel: AppViewModel) {
 @Composable
 private fun StepLanguage(viewModel: AppViewModel) {
     val context = LocalContext.current
-    val language = viewModel.state.value.preferences.language
+    val uiState by viewModel.state.collectAsState()
+    val language = uiState.preferences.language
     Column {
         Text(text = stringResource(R.string.onboarding_welcome), style = MaterialTheme.typography.headlineSmall)
         Spacer(Modifier.height(8.dp))
@@ -317,7 +326,8 @@ private fun StepPermissions(viewModel: AppViewModel) {
     val showNotificationPrompt = Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
         !notificationDenied && !notificationPermissionGranted
     val startVpn = rememberVpnStartAction()
-    val vpnRunning = viewModel.state.value.vpnRunning
+    val uiState by viewModel.state.collectAsState()
+    val vpnRunning = uiState.vpnRunning
 
     Column {
         Text(text = stringResource(R.string.onboarding_permissions_title), style = MaterialTheme.typography.headlineSmall)
@@ -366,7 +376,8 @@ private fun StepPermissions(viewModel: AppViewModel) {
 
 @Composable
 private fun StepApps(viewModel: AppViewModel) {
-    val preferences = viewModel.state.value.preferences
+    val uiState by viewModel.state.collectAsState()
+    val preferences = uiState.preferences
     var showPicker by remember { mutableStateOf(false) }
     Column {
         Text(text = stringResource(R.string.onboarding_apps_title), style = MaterialTheme.typography.headlineSmall)
@@ -375,7 +386,7 @@ private fun StepApps(viewModel: AppViewModel) {
         Spacer(Modifier.height(12.dp))
         preferences.lockedApps.forEach { rule ->
             Row(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
-                Text(text = rule.packageName, modifier = Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
+                Text(text = appLabel(rule.packageName), modifier = Modifier.weight(1f).align(Alignment.CenterVertically), style = MaterialTheme.typography.bodyMedium)
                 TextButton(onClick = {
                     viewModel.update { current ->
                         current.copy(lockedApps = current.lockedApps.filterNot { it.packageName == rule.packageName })
@@ -420,7 +431,7 @@ private fun StepPin(
         OutlinedTextField(
             colors = NaqaaOutlinedTextFieldColors(),
             value = pin,
-            onValueChange = { value -> onPin(value.filter(Char::isDigit).take(12)) },
+            onValueChange = { value -> onPin(value.filter(Char::isDigit).take(PinGate.PIN_LENGTH)) },
             singleLine = true,
             visualTransformation = PasswordVisualTransformation(),
             label = { Text(text = stringResource(R.string.settings_pin_new)) },
@@ -430,13 +441,20 @@ private fun StepPin(
         OutlinedTextField(
             colors = NaqaaOutlinedTextFieldColors(),
             value = pinRepeat,
-            onValueChange = { value -> onRepeat(value.filter(Char::isDigit).take(12)) },
+            onValueChange = { value -> onRepeat(value.filter(Char::isDigit).take(PinGate.PIN_LENGTH)) },
             singleLine = true,
             visualTransformation = PasswordVisualTransformation(),
             label = { Text(text = stringResource(R.string.settings_pin_repeat)) },
             modifier = Modifier.fillMaxWidth()
         )
-        if (pin.isNotEmpty() && pinRepeat.isNotEmpty() && pin != pinRepeat) {
+        if (pin.isNotEmpty() && pin.length != PinGate.PIN_LENGTH) {
+            Spacer(Modifier.height(6.dp))
+            Text(
+                text = stringResource(R.string.settings_pin_rule),
+                color = MaterialTheme.colorScheme.error,
+                style = MaterialTheme.typography.bodySmall
+            )
+        } else if (pin.isNotEmpty() && pin != pinRepeat) {
             Spacer(Modifier.height(6.dp))
             Text(
                 text = stringResource(R.string.settings_pin_mismatch),
@@ -496,7 +514,7 @@ private fun finish(
     trustedName: String,
     trustedPhone: String
 ) {
-    val salt = if (pin.length >= 6) PinHasher.salt() else null
+    val salt = if (pin.length == PinGate.PIN_LENGTH) PinHasher.salt() else null
     val hash = if (salt != null) PinHasher.hash(pin.toCharArray(), salt) else null
     viewModel.update { preferences ->
         preferences.copy(
@@ -516,3 +534,4 @@ private fun finish(
 }
 
 private const val STEPS = 7
+private const val PIN_STEP = 5

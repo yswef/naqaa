@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.AlertDialog
@@ -39,6 +40,8 @@ import com.naqaa.app.ui.BiometricUnlock
 import com.naqaa.app.ui.PinGate
 import com.naqaa.app.util.TimeX
 import java.time.Instant
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 /**
  * The lock in front of the journal.
@@ -63,7 +66,10 @@ fun LockScreen(
 
     LaunchedEffect(pin, waiting) {
         if (pin.length == PinGate.PIN_LENGTH && !waiting) {
-            if (PinGate.verify(preferences, pin)) {
+            // The hash is slow by design; on the main thread it froze the keypad on older phones.
+            val entered = pin
+            val correct = withContext(Dispatchers.Default) { PinGate.verify(preferences, entered) }
+            if (correct) {
                 onUpdate { PinGate.onSuccess(it) }
                 onUnlocked()
             } else {
@@ -83,7 +89,7 @@ fun LockScreen(
 
     Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
         Column(
-            modifier = Modifier.fillMaxSize().padding(24.dp),
+            modifier = Modifier.fillMaxSize().safeDrawingPadding().padding(24.dp),
             verticalArrangement = Arrangement.Center,
             horizontalAlignment = Alignment.CenterHorizontally
         ) {

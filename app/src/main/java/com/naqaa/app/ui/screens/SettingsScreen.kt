@@ -92,16 +92,18 @@ fun SettingsScreen(viewModel: AppViewModel, state: UiState) {
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
             Spacer(Modifier.height(8.dp))
-            Persona.entries.forEach { persona ->
-                FilterChip(
-                    selected = preferences.persona == persona,
-                    onClick = {
-                        viewModel.update { it.copy(persona = persona) }
-                        PersonaSwitch.apply(context, persona)
-                    },
-                    label = { Text(text = personaLabel(persona)) },
-                    modifier = Modifier.padding(top = 3.dp, end = 6.dp, bottom = 3.dp)
-                )
+            ChipFlow {
+                Persona.entries.forEach { persona ->
+                    FilterChip(
+                        selected = preferences.persona == persona,
+                        onClick = {
+                            viewModel.update { it.copy(persona = persona) }
+                            PersonaSwitch.apply(context, persona)
+                        },
+                        label = { Text(text = personaLabel(persona)) },
+                        modifier = Modifier.padding(top = 3.dp, bottom = 3.dp)
+                    )
+                }
             }
         }
 
@@ -253,6 +255,9 @@ fun SettingsScreen(viewModel: AppViewModel, state: UiState) {
         )
     }
 
+    val eraseAllowed = remember(confirmPin, preferences.pinHash) {
+        !preferences.hasPin || PinGate.verify(preferences, confirmPin)
+    }
     if (showEraseDialog) {
         AlertDialog(
             onDismissRequest = { showEraseDialog = false },
@@ -271,7 +276,7 @@ fun SettingsScreen(viewModel: AppViewModel, state: UiState) {
                         OutlinedTextField(
                             colors = NaqaaOutlinedTextFieldColors(),
                             value = confirmPin,
-                            onValueChange = { confirmPin = it.filter(Char::isDigit) },
+                            onValueChange = { confirmPin = it.filter(Char::isDigit).take(PinGate.PIN_LENGTH) },
                             singleLine = true,
                             visualTransformation = PasswordVisualTransformation(),
                             label = { Text(text = stringResource(R.string.pin_label)) },
@@ -285,7 +290,7 @@ fun SettingsScreen(viewModel: AppViewModel, state: UiState) {
                     TextButton(onClick = { eraseStep = 1 }) { Text(text = stringResource(R.string.erase_continue)) }
                 } else {
                     TextButton(
-                        enabled = !preferences.hasPin || PinGate.verify(preferences, confirmPin),
+                        enabled = eraseAllowed,
                         onClick = {
                             viewModel.eraseAll()
                             showEraseDialog = false
@@ -311,7 +316,10 @@ private fun PinSetupDialog(
     var next by remember { mutableStateOf("") }
     var repeat by remember { mutableStateOf("") }
     var problem by remember { mutableStateOf<Int?>(null) }
-    val currentOk = !preferences.hasPin || PinGate.verify(preferences, current)
+    // Hashing is deliberately slow, so it runs when the entry changes and not on every redraw.
+    val currentOk = remember(current, preferences.pinHash) {
+        !preferences.hasPin || PinGate.verify(preferences, current)
+    }
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -322,7 +330,7 @@ private fun PinSetupDialog(
                     OutlinedTextField(
                         colors = NaqaaOutlinedTextFieldColors(),
                         value = current,
-                        onValueChange = { current = it.filter(Char::isDigit) },
+                        onValueChange = { current = it.filter(Char::isDigit).take(PinGate.PIN_LENGTH) },
                         singleLine = true,
                         visualTransformation = PasswordVisualTransformation(),
                         label = { Text(text = stringResource(R.string.settings_pin_current)) },
@@ -333,7 +341,7 @@ private fun PinSetupDialog(
                 OutlinedTextField(
                     colors = NaqaaOutlinedTextFieldColors(),
                     value = next,
-                    onValueChange = { next = it.filter(Char::isDigit) },
+                    onValueChange = { next = it.filter(Char::isDigit).take(PinGate.PIN_LENGTH) },
                     singleLine = true,
                     visualTransformation = PasswordVisualTransformation(),
                     label = { Text(text = stringResource(R.string.settings_pin_new)) },
@@ -343,7 +351,7 @@ private fun PinSetupDialog(
                 OutlinedTextField(
                     colors = NaqaaOutlinedTextFieldColors(),
                     value = repeat,
-                    onValueChange = { repeat = it.filter(Char::isDigit) },
+                    onValueChange = { repeat = it.filter(Char::isDigit).take(PinGate.PIN_LENGTH) },
                     singleLine = true,
                     visualTransformation = PasswordVisualTransformation(),
                     label = { Text(text = stringResource(R.string.settings_pin_repeat)) },
@@ -360,14 +368,17 @@ private fun PinSetupDialog(
                 when {
                     !currentOk -> problem = R.string.pin_wrong
                     next != repeat -> problem = R.string.settings_pin_mismatch
-                    !PinHasher.isValid(next.toCharArray()) -> problem = R.string.settings_pin_rule
+                    next.length != PinGate.PIN_LENGTH || !PinHasher.isValid(next.toCharArray()) -> problem = R.string.settings_pin_rule
                     else -> onSave(next)
                 }
             }) { Text(text = stringResource(R.string.save)) }
         },
         dismissButton = {
             if (preferences.hasPin) {
-                TextButton(onClick = onRemove) { Text(text = stringResource(R.string.settings_pin_remove)) }
+                // Removing the PIN needs the current one, like changing it.
+                TextButton(onClick = { if (currentOk) onRemove() else problem = R.string.pin_wrong }) {
+                    Text(text = stringResource(R.string.settings_pin_remove))
+                }
             } else {
                 TextButton(onClick = onDismiss) { Text(text = stringResource(R.string.cancel)) }
             }

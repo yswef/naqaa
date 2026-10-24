@@ -362,7 +362,7 @@
     <string name="settings_pin_new">الرقم الجديد</string>
     <string name="settings_pin_remove">إزالة الرقم السري</string>
     <string name="settings_pin_repeat">تأكيد الرقم</string>
-    <string name="settings_pin_rule">الرقم من ستة إلى اثني عشر خانة على الأقل، أرقام فقط</string>
+    <string name="settings_pin_rule">الرقم السري ست خانات بالضبط، أرقام فقط</string>
     <string name="settings_pin_set">مضبوط</string>
     <string name="settings_widget_title">ودجة الشاشة الرئيسية</string>
     <string name="settings_widget_body">عدّاد أيام يظهر كأي عدّاد عادي، ولا يذكر شيئا عن هذا التطبيق.</string>

@@ -360,7 +360,7 @@
     <string name="settings_pin_new">New PIN</string>
     <string name="settings_pin_remove">Remove the PIN</string>
     <string name="settings_pin_repeat">Repeat the PIN</string>
-    <string name="settings_pin_rule">The PIN is six digits or more, digits only</string>
+    <string name="settings_pin_rule">The PIN is exactly six digits, digits only</string>
     <string name="settings_pin_set">Set</string>
     <string name="settings_widget_title">Home screen widget</string>
     <string name="settings_widget_body">A day counter that looks like any other counter and says nothing about this application.</string>
