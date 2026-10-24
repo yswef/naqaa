@@ -17,7 +17,6 @@ import androidx.lifecycle.ViewModelProvider
 import com.naqaa.app.NaqaaApplication
 import com.naqaa.app.data.Preferences
 import com.naqaa.app.ui.screens.AppShell
-import com.naqaa.app.ui.screens.CrashReportScreen
 import com.naqaa.app.ui.screens.Destination
 import com.naqaa.app.ui.screens.LockScreen
 import com.naqaa.app.ui.screens.OnboardingScreen
@@ -51,21 +50,8 @@ class MainActivity : ComponentActivity() {
 
         // Read before anything else touches the settings or the journal, so a failure that
         // killed the previous start can still be shown on this one.
-        val pending = CrashLog.pending(this)
-        if (pending != null) {
-            setContent {
-                NaqaaTheme {
-                    CrashReportScreen(
-                        report = pending,
-                        onContinue = {
-                            CrashLog.clear(this@MainActivity)
-                            recreate()
-                        }
-                    )
-                }
-            }
-            return
-        }
+        // An earlier failure is kept as a file and never put in front of the user.
+        if (CrashLog.pending(this) != null) CrashLog.archive(this)
 
         // Start tracking only after checking for an earlier incomplete launch. Writing the
         // marker from Application.onCreate made every fresh launch look like a previous crash.

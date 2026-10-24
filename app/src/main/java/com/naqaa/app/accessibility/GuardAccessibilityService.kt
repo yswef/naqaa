@@ -3,6 +3,8 @@ package com.naqaa.app.accessibility
 import android.accessibilityservice.AccessibilityService
 import android.accessibilityservice.AccessibilityServiceInfo
 import android.content.res.Configuration
+import android.os.Handler
+import android.os.Looper
 import android.view.accessibility.AccessibilityEvent
 import android.widget.Toast
 import com.naqaa.app.NaqaaApplication
@@ -39,9 +41,26 @@ class GuardAccessibilityService : AccessibilityService() {
     private var lastActionAt = 0L
     private var lastActionPackage: String? = null
 
+    private var unsubscribe: (() -> Unit)? = null
+
     override fun onServiceConnected() {
         super.onServiceConnected()
-        runCatching { loadRules() }.onFailure { CrashLog.note(this, "accessibility connect", it) }
+        runCatching {
+            loadRules()
+            val store = (application as NaqaaApplication).graph.preferences
+            refreshWatched(store.load())
+            // A lock added later must start working at once: events of an application that
+            // is not on the list are never delivered, so the list follows the settings.
+            unsubscribe = store.addListener { updated ->
+                Handler(Looper.getMainLooper()).post { runCatching { refreshWatched(updated) } }
+            }
+        }.onFailure { CrashLog.note(this, "accessibility connect", it) }
+    }
+
+    override fun onDestroy() {
+        unsubscribe?.invoke()
+        unsubscribe = null
+        super.onDestroy()
     }
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
@@ -58,7 +77,7 @@ class GuardAccessibilityService : AccessibilityService() {
         loadRules()
         val preferences = preferences()
         if (!preferences.onboarded) return
-        updateWatchedPackages(preferences, packageName)
+        if (watched.isEmpty()) refreshWatched(preferences)
         if (!canAct(packageName)) return
 
         val minute = TimeX.minuteOfDay(Instant.now(), ZoneId.systemDefault())
@@ -106,17 +125,16 @@ class GuardAccessibilityService : AccessibilityService() {
         loadRules()
     }
 
-    /** Launcher applications can appear without an accessibility event, so the list is refreshed as needed. */
-    private fun updateWatchedPackages(preferences: Preferences, packageName: String) {
-        if (packageName in watched) return
+    /** Subscribes the service to the packages a rule or a lock can act on, and to nothing else. */
+    private fun refreshWatched(preferences: Preferences) {
+        loadRules()
         val wanted = buildSet {
-            add(packageName)
             rules.shortVideo.forEach { add(it.packageName) }
             rules.browsers.forEach { add(it.packageName) }
             addAll(rules.riskyPackages)
             preferences.lockedApps.forEach { add(it.packageName) }
         }
-        if (wanted == watched) return
+        if (wanted.isEmpty() || wanted == watched) return
         watched = wanted
         runCatching {
             serviceInfo = (serviceInfo ?: AccessibilityServiceInfo()).apply {

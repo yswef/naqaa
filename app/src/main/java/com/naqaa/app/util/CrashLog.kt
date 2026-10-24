@@ -66,6 +66,24 @@ object CrashLog {
         return null
     }
 
+    /**
+     * Moves the text of an earlier failure aside so the start is never interrupted by it.
+     * The text stays in `previous-error.txt` for anyone who reads the folder from a computer.
+     */
+    fun archive(context: Context) {
+        val appContext = context.applicationContext
+        listOfNotNull(appContext.filesDir, appContext.getExternalFilesDir(null)).forEach { folder ->
+            runCatching {
+                val error = File(folder, EXCEPTION_FILE)
+                if (error.exists()) {
+                    error.copyTo(File(folder, ARCHIVE_FILE), overwrite = true)
+                    error.delete()
+                }
+                File(folder, SESSION_FILE).delete()
+            }
+        }
+    }
+
     fun clear(context: Context) {
         val appContext = context.applicationContext
         val folders = listOfNotNull(appContext.filesDir, appContext.getExternalFilesDir(null))
@@ -106,4 +124,5 @@ object CrashLog {
 
     private const val EXCEPTION_FILE = "last-error.txt"
     private const val SESSION_FILE = "last-launch.txt"
+    private const val ARCHIVE_FILE = "previous-error.txt"
 }
