@@ -85,8 +85,8 @@ private fun Quick(viewModel: AppViewModel, state: UiState, onDetails: () -> Unit
             if (recent.isEmpty()) {
                 Text(text = stringResource(R.string.journal_empty), style = MaterialTheme.typography.bodyMedium)
             } else {
-                LazyColumn(modifier = Modifier.fillMaxWidth().height(320.dp)) {
-                    items(recent, key = { it.id }) { event ->
+                Column(modifier = Modifier.fillMaxWidth()) {
+                    recent.forEach { event ->
                         Row(
                             modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp),
                             horizontalArrangement = Arrangement.SpaceBetween
@@ -126,43 +126,51 @@ private fun Details(viewModel: AppViewModel, onBack: () -> Unit) {
     Column(modifier = Modifier.padding(horizontal = 16.dp)) {
         ScreenTitle(title = stringResource(R.string.journal_details_title))
         SectionCard(title = stringResource(R.string.journal_kind)) {
-            AppViewModel.logLabels.forEach { (option, label) ->
-                FilterChip(
-                    selected = kind == option,
-                    onClick = { kind = option },
-                    label = { Text(text = stringResource(label)) },
-                    modifier = Modifier.padding(vertical = 3.dp)
-                )
+            ChipFlow {
+                AppViewModel.logLabels.forEach { (option, label) ->
+                    FilterChip(
+                        selected = kind == option,
+                        onClick = { kind = option },
+                        label = { Text(text = stringResource(label)) },
+                        modifier = Modifier.padding(vertical = 3.dp)
+                    )
+                }
             }
         }
         SectionCard(title = stringResource(R.string.journal_trigger)) {
-            Trigger.entries.forEach { option ->
-                FilterChip(
-                    selected = trigger == option.key,
-                    onClick = { trigger = if (trigger == option.key) null else option.key },
-                    label = { Text(text = triggerLabel(option)) },
-                    modifier = Modifier.padding(vertical = 3.dp)
-                )
+            ChipFlow {
+                Trigger.entries.forEach { option ->
+                    FilterChip(
+                        selected = trigger == option.key,
+                        onClick = { trigger = if (trigger == option.key) null else option.key },
+                        label = { Text(text = triggerLabel(option)) },
+                        modifier = Modifier.padding(vertical = 3.dp)
+                    )
+                }
             }
         }
         SectionCard(title = stringResource(R.string.journal_place)) {
-            Place.entries.forEach { option ->
-                FilterChip(
-                    selected = place == option.key,
-                    onClick = { place = if (place == option.key) null else option.key },
-                    label = { Text(text = placeLabel(option)) },
-                    modifier = Modifier.padding(vertical = 3.dp)
-                )
+            ChipFlow {
+                Place.entries.forEach { option ->
+                    FilterChip(
+                        selected = place == option.key,
+                        onClick = { place = if (place == option.key) null else option.key },
+                        label = { Text(text = placeLabel(option)) },
+                        modifier = Modifier.padding(vertical = 3.dp)
+                    )
+                }
             }
         }
         SectionCard(title = stringResource(R.string.journal_feeling)) {
-            Feeling.entries.forEach { option ->
-                FilterChip(
-                    selected = feeling == option.key,
-                    onClick = { feeling = if (feeling == option.key) null else option.key },
-                    label = { Text(text = feelingLabel(option)) },
-                    modifier = Modifier.padding(vertical = 3.dp)
-                )
+            ChipFlow {
+                Feeling.entries.forEach { option ->
+                    FilterChip(
+                        selected = feeling == option.key,
+                        onClick = { feeling = if (feeling == option.key) null else option.key },
+                        label = { Text(text = feelingLabel(option)) },
+                        modifier = Modifier.padding(vertical = 3.dp)
+                    )
+                }
             }
         }
         SectionCard(title = stringResource(R.string.journal_note)) {
@@ -229,13 +237,15 @@ private fun Lapse(viewModel: AppViewModel, onDone: () -> Unit) {
                 Text(text = stringResource(R.string.lapse_prayer_body), style = MaterialTheme.typography.bodyLarge)
             }
             3 -> SectionCard(title = stringResource(R.string.lapse_trigger)) {
-                Trigger.entries.forEach { option ->
-                    FilterChip(
-                        selected = trigger == option.key,
-                        onClick = { trigger = option.key },
-                        label = { Text(text = triggerLabel(option)) },
-                        modifier = Modifier.padding(vertical = 3.dp)
-                    )
+                ChipFlow {
+                    Trigger.entries.forEach { option ->
+                        FilterChip(
+                            selected = trigger == option.key,
+                            onClick = { trigger = option.key },
+                            label = { Text(text = triggerLabel(option)) },
+                            modifier = Modifier.padding(vertical = 3.dp)
+                        )
+                    }
                 }
             }
             else -> SectionCard(title = stringResource(R.string.lapse_plan)) {

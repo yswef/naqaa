@@ -1,14 +1,17 @@
 package com.naqaa.app.ui.theme
 
 import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextFieldDefaults
+import androidx.compose.material3.Shapes
 import androidx.compose.material3.Typography
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
 /** Calm forest-green and sand palette with deliberately high contrast for interactive text. */
@@ -60,7 +63,18 @@ private val BaseTypography = Typography()
 private val NaqaaTypography = BaseTypography.copy(
     // Material buttons and text buttons use labelLarge. A slightly larger, semibold label is
     // easier to read in Arabic and keeps the text distinct from the button outline.
-    labelLarge = BaseTypography.labelLarge.copy(fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
+    labelLarge = BaseTypography.labelLarge.copy(fontSize = 15.sp, fontWeight = FontWeight.SemiBold),
+    // Arabic needs more height between lines than the Latin defaults give it.
+    bodyLarge = BaseTypography.bodyLarge.copy(fontSize = 17.sp, lineHeight = 27.sp),
+    bodyMedium = BaseTypography.bodyMedium.copy(fontSize = 15.sp, lineHeight = 24.sp),
+    bodySmall = BaseTypography.bodySmall.copy(fontSize = 13.sp, lineHeight = 20.sp),
+    titleMedium = BaseTypography.titleMedium.copy(fontWeight = FontWeight.SemiBold)
+)
+
+private val NaqaaShapes = Shapes(
+    small = RoundedCornerShape(12.dp),
+    medium = RoundedCornerShape(16.dp),
+    large = RoundedCornerShape(22.dp)
 )
 
 @Composable
@@ -94,6 +108,7 @@ fun NaqaaTheme(dark: Boolean = isSystemInDarkTheme(), content: @Composable () ->
     MaterialTheme(
         colorScheme = if (dark) DarkScheme else LightScheme,
         typography = NaqaaTypography,
+        shapes = NaqaaShapes,
         content = content
     )
 }

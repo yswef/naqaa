@@ -152,13 +152,15 @@ fun PrayerScreen(viewModel: AppViewModel, state: UiState, onOpenAdhkar: () -> Un
         }
 
         SectionCard(title = stringResource(R.string.prayer_method)) {
-            CalculationMethod.entries.forEach { method ->
-                FilterChip(
-                    selected = state.preferences.prayerMethod == method,
-                    onClick = { viewModel.update { it.copy(prayerMethod = method) } },
-                    label = { Text(text = methodLabel(method)) },
-                    modifier = Modifier.padding(top = 3.dp, end = 6.dp, bottom = 3.dp)
-                )
+            ChipFlow {
+                CalculationMethod.entries.forEach { method ->
+                    FilterChip(
+                        selected = state.preferences.prayerMethod == method,
+                        onClick = { viewModel.update { it.copy(prayerMethod = method) } },
+                        label = { Text(text = methodLabel(method)) },
+                        modifier = Modifier.padding(top = 3.dp, bottom = 3.dp)
+                    )
+                }
             }
             SettingSwitch(
                 title = stringResource(R.string.prayer_hanafi),

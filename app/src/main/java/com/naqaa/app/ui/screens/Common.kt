@@ -4,6 +4,8 @@ import android.os.Build
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -45,12 +47,17 @@ fun SectionCard(
 ) {
     Card(
         modifier = modifier.fillMaxWidth().padding(vertical = 6.dp),
+        shape = MaterialTheme.shapes.large,
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
     ) {
-        Column(modifier = Modifier.padding(16.dp)) {
+        Column(modifier = Modifier.padding(18.dp)) {
             if (title != null) {
-                Text(text = title, style = MaterialTheme.typography.titleMedium)
-                Spacer(Modifier.height(8.dp))
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.primary
+                )
+                Spacer(Modifier.height(10.dp))
             }
             content()
         }
@@ -246,6 +253,31 @@ fun prayerLabel(name: PrayerName): String = stringResource(
         PrayerName.ISHA -> R.string.prayer_isha
     }
 )
+
+/** Chips that wrap onto as many lines as the width needs instead of one long column. */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+fun ChipFlow(content: @Composable () -> Unit) {
+    FlowRow(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalArrangement = Arrangement.spacedBy(0.dp)
+    ) {
+        content()
+    }
+}
+
+/** The name the launcher shows for an installed package, or the package name if unknown. */
+@Composable
+fun appLabel(packageName: String): String {
+    val context = LocalContext.current
+    return remember(packageName) {
+        runCatching {
+            val manager = context.packageManager
+            manager.getApplicationLabel(manager.getApplicationInfo(packageName, 0)).toString()
+        }.getOrNull()?.takeIf { it.isNotBlank() } ?: packageName
+    }
+}
 
 @Composable
 fun ScreenTitle(title: String, subtitle: String? = null) {

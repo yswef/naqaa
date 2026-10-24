@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
@@ -70,6 +71,18 @@ fun HomeScreen(viewModel: AppViewModel, state: UiState, onNavigate: (Destination
             }
         }
 
+        // The urgent action sits right under the counter, where a thumb finds it first.
+        Button(
+            onClick = { onNavigate(Destination.EMERGENCY) },
+            modifier = Modifier.fillMaxWidth().padding(top = 12.dp, bottom = 4.dp).heightIn(min = 52.dp),
+            colors = ButtonDefaults.buttonColors(
+                containerColor = MaterialTheme.colorScheme.error,
+                contentColor = MaterialTheme.colorScheme.onError
+            )
+        ) {
+            Text(text = stringResource(R.string.home_emergency), style = MaterialTheme.typography.titleMedium)
+        }
+
         state.encouragement?.let { card ->
             EncouragementCard(card = card, language = language, onDismiss = viewModel::dismissEncouragement)
         }
@@ -111,12 +124,17 @@ fun HomeScreen(viewModel: AppViewModel, state: UiState, onNavigate: (Destination
             Text(text = stringResource(R.string.home_quick_log_hint), style = MaterialTheme.typography.bodySmall)
             Spacer(Modifier.height(10.dp))
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                AppViewModel.logLabels.forEach { (kind, label) ->
-                    OutlinedButton(
-                        onClick = { viewModel.quickLog(kind) },
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Text(text = stringResource(label))
+                AppViewModel.logLabels.chunked(2).forEach { pair ->
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                        pair.forEach { (kind, label) ->
+                            OutlinedButton(
+                                onClick = { viewModel.quickLog(kind) },
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                Text(text = stringResource(label), maxLines = 2)
+                            }
+                        }
+                        if (pair.size == 1) Spacer(Modifier.weight(1f))
                     }
                 }
             }
@@ -170,17 +188,6 @@ fun HomeScreen(viewModel: AppViewModel, state: UiState, onNavigate: (Destination
             }
         }
 
-        Button(
-            onClick = { onNavigate(Destination.EMERGENCY) },
-            modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
-            colors = ButtonDefaults.buttonColors(
-                containerColor = MaterialTheme.colorScheme.error,
-                contentColor = MaterialTheme.colorScheme.onError
-            )
-        ) {
-            Text(text = stringResource(R.string.home_emergency))
-        }
-
         OutlinedButton(onClick = { onNavigate(Destination.PROGRESS) }, modifier = Modifier.fillMaxWidth()) {
             Text(text = stringResource(R.string.nav_progress))
         }
@@ -193,4 +200,4 @@ fun HomeScreen(viewModel: AppViewModel, state: UiState, onNavigate: (Destination
 }
 
 private fun blockedTodayLabel(state: UiState): String =
-    if (state.vpnRunning) VpnState.blockedCount().toString() else "0" 
+    if (state.vpnRunning) VpnState.blockedCount().toString() else "0"

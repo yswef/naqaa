@@ -162,7 +162,7 @@ fun ProtectionScreen(viewModel: AppViewModel, state: UiState) {
             }
             state.preferences.lockedApps.forEach { rule ->
                 Column(modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp)) {
-                    Text(text = rule.packageName, style = MaterialTheme.typography.bodyLarge)
+                    Text(text = appLabel(rule.packageName), style = MaterialTheme.typography.bodyLarge)
                     val selected = LockPreset.of(rule)
                     Text(
                         text = selected?.let { stringResource(it.label) }
@@ -170,30 +170,25 @@ fun ProtectionScreen(viewModel: AppViewModel, state: UiState) {
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
-                    Column {
-                        LockPreset.entries.chunked(3).forEach { row ->
-                            Row {
-                                row.forEach { preset ->
-                                    FilterChip(
-                                        selected = selected == preset,
-                                        onClick = {
-                                            viewModel.update { preferences ->
-                                                preferences.copy(
-                                                    lockedApps = preferences.lockedApps.map { existing ->
-                                                        if (existing.packageName == rule.packageName) {
-                                                            LockRule(rule.packageName, preset.startMinute, preset.endMinute)
-                                                        } else {
-                                                            existing
-                                                        }
-                                                    }
-                                                )
+                    ChipFlow {
+                        LockPreset.entries.forEach { preset ->
+                            FilterChip(
+                                selected = selected == preset,
+                                onClick = {
+                                    viewModel.update { preferences ->
+                                        preferences.copy(
+                                            lockedApps = preferences.lockedApps.map { existing ->
+                                                if (existing.packageName == rule.packageName) {
+                                                    LockRule(rule.packageName, preset.startMinute, preset.endMinute)
+                                                } else {
+                                                    existing
+                                                }
                                             }
-                                        },
-                                        label = { Text(text = stringResource(preset.label)) },
-                                        modifier = Modifier.padding(end = 6.dp)
-                                    )
-                                }
-                            }
+                                        )
+                                    }
+                                },
+                                label = { Text(text = stringResource(preset.label)) }
+                            )
                         }
                     }
                     TextButton(onClick = {
