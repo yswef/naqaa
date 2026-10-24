@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- The window behind the first frame follows the dark scheme, so a phone in dark mode
+         does not flash a light screen while the interface starts. -->
+    <color name="surface">#121412</color>
+</resources>

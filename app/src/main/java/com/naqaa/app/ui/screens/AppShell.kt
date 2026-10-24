@@ -4,7 +4,10 @@ import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.ScrollState
+import androidx.compose.foundation.layout.consumeWindowInsets
+import androidx.compose.foundation.layout.imePadding
+import androidx.compose.runtime.remember
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Edit
@@ -76,11 +79,16 @@ fun AppShell(viewModel: AppViewModel, state: UiState, requested: Destination? = 
             }
         }
     ) { padding ->
+        // Each screen starts at its top, and the keyboard lifts the content on every level of
+        // Android: from Android 15 the window no longer resizes for it.
+        val scroll = remember(destination) { ScrollState(0) }
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
-                .verticalScroll(rememberScrollState())
+                .consumeWindowInsets(padding)
+                .imePadding()
+                .verticalScroll(scroll)
         ) {
             when (destination) {
                 Destination.HOME -> HomeScreen(viewModel, state, ::navigate)
