@@ -20,6 +20,9 @@ import com.naqaa.app.util.CrashLog
 import java.io.FileInputStream
 import java.io.FileOutputStream
 import java.net.InetAddress
+import java.util.concurrent.LinkedBlockingQueue
+import java.util.concurrent.ThreadPoolExecutor
+import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicLong
 
@@ -102,17 +105,39 @@ class DnsVpnService : VpnService() {
             tunnel = descriptor
             val resolver = UpstreamResolver({ socket -> protect(socket) }, { resolverAddresses() })
             val cache = DnsCache()
-            FileInputStream(descriptor.fileDescriptor).use { input ->
-                FileOutputStream(descriptor.fileDescriptor).use { output ->
-                    val buffer = ByteArray(MAX_PACKET)
-                    while (running.get()) {
-                        val read = input.read(buffer)
-                        if (read < 0) break
-                        if (read == 0) continue
-                        val reply = handle(buffer, read, filter, resolver, cache) ?: continue
-                        output.write(reply)
+            // Each query waits on a network answer for up to a second and a half. Answering
+            // them one after another meant a single slow name server stalled every page, so
+            // the reading loop only hands packets over and a small pool does the waiting.
+            // When the queue is full the oldest query is dropped; the client asks again.
+            val pool = ThreadPoolExecutor(
+                POOL_THREADS, POOL_THREADS, POOL_IDLE_SECONDS, TimeUnit.SECONDS,
+                LinkedBlockingQueue<Runnable>(POOL_QUEUE),
+                ThreadPoolExecutor.DiscardOldestPolicy()
+            ).apply { allowCoreThreadTimeOut(true) }
+            try {
+                FileInputStream(descriptor.fileDescriptor).use { input ->
+                    FileOutputStream(descriptor.fileDescriptor).use { output ->
+                        val buffer = ByteArray(MAX_PACKET)
+                        while (running.get()) {
+                            val read = input.read(buffer)
+                            if (read < 0) break
+                            if (read == 0) continue
+                            val packet = buffer.copyOf(read)
+                            pool.execute {
+                                try {
+                                    val reply = handle(packet, packet.size, filter, resolver, cache)
+                                    if (reply != null) {
+                                        synchronized(output) { output.write(reply) }
+                                    }
+                                } catch (_: Exception) {
+                                    // One failed query must not end the session.
+                                }
+                            }
+                        }
                     }
                 }
+            } finally {
+                pool.shutdownNow()
             }
         } catch (error: Exception) {
             // A revoked tunnel or a closed descriptor ends the loop; onRevoke and the next
@@ -284,6 +309,9 @@ class DnsVpnService : VpnService() {
         const val MTU = 1500
         const val MAX_PACKET = 32_767
         const val MAX_ROUTES = 4
+        const val POOL_THREADS = 6
+        const val POOL_QUEUE = 256
+        const val POOL_IDLE_SECONDS = 20L
         const val BLOCK_NOTICE_INTERVAL = 15_000L
         const val RESTART_JOIN_MILLIS = 2_000L
         const val DEFAULT_TTL = 60

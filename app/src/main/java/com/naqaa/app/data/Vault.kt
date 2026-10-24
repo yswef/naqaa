@@ -33,18 +33,28 @@ class Vault(private val alias: String = KEY_ALIAS) {
         return cipher.doFinal(encrypted.copyOfRange(IV_LENGTH, encrypted.size))
     }
 
+    @Volatile
+    private var cachedKey: SecretKey? = null
+
     fun destroy() {
+        cachedKey = null
         val store = KeyStore.getInstance(PROVIDER).apply { load(null) }
         store.deleteEntry(alias)
     }
 
     fun exists(): Boolean = KeyStore.getInstance(PROVIDER).apply { load(null) }.containsAlias(alias)
 
+    /**
+     * The handle of a Keystore key never exposes the key material, so it is kept for the life
+     * of the process. Asking the Keystore again for every journal row made opening a long
+     * journal slow enough to freeze the first screen on older phones.
+     */
     private fun key(): SecretKey {
+        cachedKey?.let { return it }
         val store = KeyStore.getInstance(PROVIDER).apply { load(null) }
-        (store.getKey(alias, null) as? SecretKey)?.let { return it }
+        (store.getKey(alias, null) as? SecretKey)?.let { cachedKey = it; return it }
         synchronized(this) {
-            (store.getKey(alias, null) as? SecretKey)?.let { return it }
+            (store.getKey(alias, null) as? SecretKey)?.let { cachedKey = it; return it }
             val generator = KeyGenerator.getInstance(KeyProperties.KEY_ALGORITHM_AES, PROVIDER)
             generator.init(
                 KeyGenParameterSpec.Builder(alias, KeyProperties.PURPOSE_ENCRYPT or KeyProperties.PURPOSE_DECRYPT)
@@ -54,7 +64,7 @@ class Vault(private val alias: String = KEY_ALIAS) {
                     .setRandomizedEncryptionRequired(true)
                     .build()
             )
-            return generator.generateKey()
+            return generator.generateKey().also { cachedKey = it }
         }
     }
 

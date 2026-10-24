@@ -122,7 +122,21 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    private val stopVpn: () -> Unit = VpnState.addListener { refresh() }
+    @Volatile
+    private var lastVpnRefresh = 0L
+
+    // A blocked name raises this listener for every filtered query, which can be hundreds a
+    // minute while other applications run in the background. Rebuilding the state means
+    // reading and decrypting the whole journal, so a rebuild follows a real change of state
+    // at once and a plain counter change at most every few seconds.
+    private val stopVpn: () -> Unit = VpnState.addListener {
+        val now = System.currentTimeMillis()
+        val changed = VpnState.running != mutable.value.vpnRunning
+        if (changed || now - lastVpnRefresh >= VPN_REFRESH_MILLIS) {
+            lastVpnRefresh = now
+            refresh()
+        }
+    }
 
     init {
         refresh()
@@ -252,6 +266,8 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     companion object {
+        private const val VPN_REFRESH_MILLIS = 5_000L
+
         val logLabels = listOf(
             EventKind.RESISTED to R.string.log_resisted,
             EventKind.LAPSE to R.string.log_lapse,
