@@ -39,9 +39,13 @@ object Reminders {
         listOf(true, false).forEach { morning ->
             val at = next(morning, now, ZoneId.systemDefault())
             val pending = pending(context, morning)
-            if (exact) {
-                manager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, at.toEpochMilli(), pending)
-            } else {
+            try {
+                if (exact) {
+                    manager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, at.toEpochMilli(), pending)
+                } else {
+                    manager.setWindow(AlarmManager.RTC_WAKEUP, at.toEpochMilli(), WINDOW_MILLIS, pending)
+                }
+            } catch (_: SecurityException) {
                 manager.setWindow(AlarmManager.RTC_WAKEUP, at.toEpochMilli(), WINDOW_MILLIS, pending)
             }
         }

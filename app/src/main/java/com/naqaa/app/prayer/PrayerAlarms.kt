@@ -35,6 +35,7 @@ object PrayerAlarms {
         val now = Instant.now()
         val zone = ZoneId.systemDefault()
         cancel(context, manager)
+        if (!preferences.prayerReminders) return
         for (offset in 0..DAYS_AHEAD) {
             val date = LocalDate.now().plusDays(offset.toLong())
             val times = PrayerCalculator.calculate(
@@ -48,9 +49,15 @@ object PrayerAlarms {
             times.ordered().forEach { (name, instant) ->
                 if (!name.isPrayer || !instant.isAfter(now)) return@forEach
                 val pending = pending(context, offset, name)
-                if (exact) {
-                    manager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, instant.toEpochMilli(), pending)
-                } else {
+                // The permission can be withdrawn between the check and the call; the
+                // inexact alarm is the fallback instead of an exception.
+                try {
+                    if (exact) {
+                        manager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, instant.toEpochMilli(), pending)
+                    } else {
+                        manager.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, instant.toEpochMilli(), pending)
+                    }
+                } catch (_: SecurityException) {
                     manager.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, instant.toEpochMilli(), pending)
                 }
             }
