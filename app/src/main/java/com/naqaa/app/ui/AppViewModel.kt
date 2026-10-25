@@ -13,6 +13,7 @@ import com.naqaa.app.data.Preferences
 import com.naqaa.app.data.Progress
 import com.naqaa.app.data.StreakSummary
 import com.naqaa.app.guard.GuardSignals
+import com.naqaa.app.notify.Notices
 import com.naqaa.app.notify.Reminders
 import com.naqaa.app.prayer.DayPrayerTimes
 import com.naqaa.app.prayer.PrayerAlarms
@@ -23,6 +24,7 @@ import com.naqaa.app.report.ReportAnalyzer
 import com.naqaa.app.report.Risk
 import com.naqaa.app.report.WeekStats
 import com.naqaa.app.util.CrashLog
+import com.naqaa.app.util.LocaleX
 import com.naqaa.app.util.TimeX
 import com.naqaa.app.vpn.VpnState
 import kotlinx.coroutines.Dispatchers
@@ -176,8 +178,31 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     /** One tap logging: the record is written now, details can be added from the journal. */
     fun quickLog(kind: EventKind) = log(kind)
 
+    /** The lapse that was just saved, waiting for the user to say how it felt. */
+    val feelingTarget = MutableStateFlow<JournalEvent?>(null)
+
+    private val lastLogged = HashMap<EventKind, Long>()
+
+    /** Adds a feeling and a trigger to a record that was saved with one tap. */
+    fun annotate(event: JournalEvent, trigger: String, feeling: String) {
+        runCatching { graph.journal.update(event.copy(trigger = trigger, feeling = feeling)) }
+            .onFailure { record(it) }
+        refresh()
+    }
+
     fun log(kind: EventKind, trigger: String = "", place: String = "", feeling: String = "", note: String = "") {
-        graph.record(kind, trigger, place, feeling, note)
+        val plain = trigger.isEmpty() && place.isEmpty() && feeling.isEmpty() && note.isEmpty()
+        if (plain) {
+            // Two taps in a row on the same button are one record, not two.
+            val now = System.currentTimeMillis()
+            if (now - (lastLogged[kind] ?: 0L) < DOUBLE_TAP_MILLIS) return
+            lastLogged[kind] = now
+        }
+        val saved = graph.record(kind, trigger, place, feeling, note)
+        if (plain) {
+            runCatching { confirmLog(kind) }
+            if (kind == EventKind.LAPSE) feelingTarget.value = saved
+        }
         viewModelScope.launch {
             runCatching {
                 mutable.value = withContext(Dispatchers.Default) {
@@ -185,6 +210,12 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
                 }
             }.onFailure { record(it) }
         }
+    }
+
+    private fun confirmLog(kind: EventKind) {
+        val label = logLabels.firstOrNull { it.first == kind }?.second ?: return
+        val localized = LocaleX.localized(app, graph.current().language)
+        Notices.logged(localized, localized.getString(R.string.log_saved, localized.getString(label)))
     }
 
     private fun record(error: Throwable) {
@@ -267,6 +298,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
 
     companion object {
         private const val VPN_REFRESH_MILLIS = 5_000L
+        private const val DOUBLE_TAP_MILLIS = 60_000L
 
         val logLabels = listOf(
             EventKind.RESISTED to R.string.log_resisted,

@@ -5,10 +5,12 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Shapes
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Typography
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -108,7 +110,10 @@ fun NaqaaTheme(dark: Boolean = isSystemInDarkTheme(), content: @Composable () ->
     MaterialTheme(
         colorScheme = if (dark) DarkScheme else LightScheme,
         typography = NaqaaTypography,
-        shapes = NaqaaShapes,
-        content = content
-    )
+        shapes = NaqaaShapes
+    ) {
+        // Without a Surface the default text colour stays black, which disappears on the dark
+        // background. This gives every screen the right content colour in both themes.
+        Surface(modifier = Modifier, color = MaterialTheme.colorScheme.background, content = content)
+    }
 }
