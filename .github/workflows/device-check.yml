@@ -149,6 +149,8 @@ jobs:
             adb shell 'ls -l /data/data/com.naqaa.app/files/' 2>&1
             echo "--- the failure it recorded"
             adb shell 'cat /data/data/com.naqaa.app/files/last-error.txt' 2>&1
+            echo "--- the failure kept from an earlier launch"
+            adb shell 'cat /data/data/com.naqaa.app/files/previous-error.txt' 2>&1
             echo "--- the launch marker"
             adb shell 'cat /data/data/com.naqaa.app/files/last-launch.txt' 2>&1
           } > device-application-files.txt 2>&1

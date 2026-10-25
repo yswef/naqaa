@@ -3,6 +3,44 @@
 All notable changes to this project are recorded here. The format follows the usual
 sections: added, changed, fixed and removed.
 
+## 1.1.0 - 2026-10-25
+
+### Fixed
+
+- Fingerprint unlock no longer ends the process on Android 10 and 11: the call that takes an
+  authenticator mask exists only from Android 11, and setup, settings and the lock screen
+  all asked for it.
+- The unlock pad accepts six digits, and setup and settings now require exactly six. A longer
+  PIN used to be accepted and then could never be entered again. Removing the PIN now asks
+  for the current one, setup refuses a PIN whose repeat does not match, and the slow PIN hash
+  no longer runs on every redraw or on the main thread of the lock screen.
+- The boot receiver starts the local filter only after a restart of the phone or of the
+  application. A clock or time zone change used to attempt a background start that Android 12
+  and newer refuse with an exception, which ended the process; every step is now guarded.
+- A lock added after the accessibility service started now takes effect at once; the list of
+  watched applications follows the settings instead of being fixed by the first event.
+- Setup follows the live state (permission rows, chosen applications and the biometric switch
+  used to stay stale), keeps its step and typed text across rotation and theme changes, and
+  its buttons are no longer hidden behind the navigation bar on Android 15 and newer.
+  The lock, delay and application-lock screens respect the system bars and scroll on small
+  displays; the keyboard no longer covers text fields on Android 15 and newer.
+- A rejected exact-alarm permission falls back to an inexact alarm instead of an exception,
+  and prayer alarms are not scheduled while prayer reminders are off.
+- The window behind the first frame and the status bar icons follow dark mode.
+
+### Changed
+
+- Name resolution is answered by a small pool of workers, so one slow name server no longer
+  stalls every page. The journal key handle is kept for the process, which makes opening a
+  long journal much faster, and the screen state is no longer rebuilt for every filtered name.
+- An earlier failure is no longer put in front of the user at start; the text is kept in
+  `previous-error.txt` next to `last-error.txt` for anyone reading the folder from a computer.
+- Interface: rounded cards, larger Arabic text spacing, the emergency button directly under
+  the counter, quick log in two columns, wrapping chips, application names instead of package
+  names, and each screen opens at its top.
+- A push to the main branch now builds and publishes the release `v<versionName>` by itself
+  when that version has no release yet.
+
 ## 1.0.9 - 2026-10-10
 
 ### Fixed
