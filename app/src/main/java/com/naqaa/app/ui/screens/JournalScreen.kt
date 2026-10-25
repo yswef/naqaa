@@ -51,16 +51,15 @@ import kotlin.random.Random
 fun JournalScreen(viewModel: AppViewModel, state: UiState) {
     var mode by remember { mutableStateOf(Mode.QUICK) }
     when (mode) {
-        Mode.QUICK -> Quick(viewModel, state, onDetails = { mode = Mode.DETAILS }, onLapse = { mode = Mode.LAPSE })
+        Mode.QUICK -> Quick(viewModel, state, onDetails = { mode = Mode.DETAILS })
         Mode.DETAILS -> Details(viewModel, onBack = { mode = Mode.QUICK })
-        Mode.LAPSE -> Lapse(viewModel, onDone = { mode = Mode.QUICK })
     }
 }
 
-private enum class Mode { QUICK, DETAILS, LAPSE }
+private enum class Mode { QUICK, DETAILS }
 
 @Composable
-private fun Quick(viewModel: AppViewModel, state: UiState, onDetails: () -> Unit, onLapse: () -> Unit) {
+private fun Quick(viewModel: AppViewModel, state: UiState, onDetails: () -> Unit) {
     val language = state.preferences.language
     val display = LocaleX.displayLocale(language)
     val zone = ZoneId.systemDefault()
@@ -69,7 +68,7 @@ private fun Quick(viewModel: AppViewModel, state: UiState, onDetails: () -> Unit
         SectionCard(title = stringResource(R.string.journal_quick)) {
             AppViewModel.logLabels.forEach { (kind, label) ->
                 OutlinedButton(
-                    onClick = { if (kind == EventKind.LAPSE) onLapse() else viewModel.quickLog(kind) },
+                    onClick = { viewModel.quickLog(kind) },
                     modifier = Modifier.fillMaxWidth().padding(vertical = 3.dp)
                 ) {
                     Text(text = stringResource(label))
@@ -198,80 +197,6 @@ private fun Details(viewModel: AppViewModel, onBack: () -> Unit) {
     }
 }
 
-/**
- * The flow after a lapse: return, wash, pray, name the trigger, and leave with one small
- * plan for the rest of the day. Nothing here scolds, and the day is not treated as lost.
- */
-@Composable
-private fun Lapse(viewModel: AppViewModel, onDone: () -> Unit) {
-    var step by remember { mutableIntStateOf(0) }
-    var trigger by remember { mutableStateOf<String?>(null) }
-    val verse = remember { Content.verseOfDay(java.time.LocalDate.now().minusDays(1)) }
-    val hadith = remember { Content.hadithFor(listOf(Content.TOPIC_REPENTANCE, Content.TOPIC_MERCY), Random.Default) }
-
-    Column(modifier = Modifier.padding(horizontal = 16.dp)) {
-        ScreenTitle(
-            title = stringResource(R.string.lapse_title),
-            subtitle = stringResource(R.string.lapse_step, step + 1, LAPSE_STEPS)
-        )
-        when (step) {
-            0 -> SectionCard(title = stringResource(R.string.lapse_return)) {
-                Text(text = stringResource(R.string.lapse_return_body), style = MaterialTheme.typography.bodyLarge)
-                verse?.let {
-                    Spacer(Modifier.height(10.dp))
-                    Text(text = it.textAr, style = MaterialTheme.typography.bodyMedium)
-                    Spacer(Modifier.height(4.dp))
-                    Text(text = it.referenceAr, style = MaterialTheme.typography.labelMedium)
-                }
-                hadith?.let {
-                    Spacer(Modifier.height(10.dp))
-                    Text(text = it.textAr, style = MaterialTheme.typography.bodyMedium)
-                    Spacer(Modifier.height(4.dp))
-                    Text(text = it.referenceAr, style = MaterialTheme.typography.labelMedium)
-                }
-            }
-            1 -> SectionCard(title = stringResource(R.string.lapse_ghusl)) {
-                Text(text = stringResource(R.string.lapse_ghusl_body), style = MaterialTheme.typography.bodyLarge)
-            }
-            2 -> SectionCard(title = stringResource(R.string.lapse_prayer)) {
-                Text(text = stringResource(R.string.lapse_prayer_body), style = MaterialTheme.typography.bodyLarge)
-            }
-            3 -> SectionCard(title = stringResource(R.string.lapse_trigger)) {
-                ChipFlow {
-                    Trigger.entries.forEach { option ->
-                        FilterChip(
-                            selected = trigger == option.key,
-                            onClick = { trigger = option.key },
-                            label = { Text(text = triggerLabel(option)) },
-                            modifier = Modifier.padding(vertical = 3.dp)
-                        )
-                    }
-                }
-            }
-            else -> SectionCard(title = stringResource(R.string.lapse_plan)) {
-                Text(text = stringResource(R.string.lapse_plan_body), style = MaterialTheme.typography.bodyLarge)
-            }
-        }
-        Button(
-            onClick = {
-                if (step < LAPSE_STEPS - 1) {
-                    step += 1
-                } else {
-                    viewModel.log(EventKind.LAPSE, trigger = trigger.orEmpty())
-                    onDone()
-                }
-            },
-            modifier = Modifier.fillMaxWidth().padding(top = 10.dp)
-        ) {
-            Text(text = stringResource(if (step < LAPSE_STEPS - 1) R.string.next else R.string.save))
-        }
-        TextButton(onClick = onDone, modifier = Modifier.fillMaxWidth()) {
-            Text(text = stringResource(R.string.cancel))
-        }
-        Spacer(Modifier.height(20.dp))
-    }
-}
-
 @Composable
 internal fun kindLabel(kind: EventKind): String = stringResource(
     when (kind) {
@@ -338,4 +263,3 @@ private fun detailOf(event: JournalEvent, language: String): String {
     return parts.joinToString(" · ")
 }
 
-private const val LAPSE_STEPS = 5

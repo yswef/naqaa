@@ -24,6 +24,7 @@ object Notices {
     const val ID_PRAYER = 30
     const val ID_ADHKAR = 31
     const val ID_MOTIVATION = 32
+    const val ID_LOG = 40
 
     fun channels(context: Context) {
         val manager = context.getSystemService(NotificationManager::class.java)
@@ -44,6 +45,12 @@ object Notices {
                     chime(context),
                     AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_NOTIFICATION).build()
                 )
+            }
+        )
+        manager.createNotificationChannel(
+            NotificationChannel(CHANNEL_LOG, context.getString(R.string.channel_log), NotificationManager.IMPORTANCE_LOW).apply {
+                lockscreenVisibility = Notification.VISIBILITY_SECRET
+                setShowBadge(false)
             }
         )
         manager.createNotificationChannel(
@@ -94,6 +101,18 @@ object Notices {
                 .setAutoCancel(true)
                 .setContentIntent(screen(context, Screens.EMERGENCY, 6))
                 .addAction(action(context, R.string.emergency, screen(context, Screens.EMERGENCY, 7)))
+                .build()
+        )
+    }
+
+    /** A quiet confirmation that a record was saved; it replaces the previous one and fades. */
+    fun logged(context: Context, text: String) {
+        post(
+            context, ID_LOG, builder(context, CHANNEL_LOG)
+                .setContentText(text)
+                .setAutoCancel(true)
+                .setTimeoutAfter(LOG_NOTICE_MILLIS)
+                .setContentIntent(screen(context, Screens.HOME, 12))
                 .build()
         )
     }
@@ -154,6 +173,8 @@ object Notices {
         if (manager.areNotificationsEnabled()) manager.notify(id, notification)
     }
 
+    private const val LOG_NOTICE_MILLIS = 6_000L
+    private const val CHANNEL_LOG = "log"
     private const val CHANNEL_PRAYER = "prayer"
     private const val CHANNEL_REMINDER = "reminders"
     private const val CHANNEL_PROTECTION = "protection"

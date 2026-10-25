@@ -196,7 +196,12 @@ private fun StepCity(city: City?, language: String, onCity: (City?) -> Unit) {
     val context = LocalContext.current
     var query by remember { mutableStateOf("") }
     var status by remember { mutableStateOf(LocationPickerStatus.IDLE) }
+    var manualRequested by rememberSaveable { mutableStateOf(false) }
     val results = remember(query) { Cities.search(query) }
+    // The list is the fallback: it stays out of the way while location can do the job, and
+    // disappears once a city was found from the location.
+    val showManual = status != LocationPickerStatus.FOUND &&
+        (manualRequested || status == LocationPickerStatus.UNAVAILABLE)
     val permission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
         if (!granted) {
             status = LocationPickerStatus.UNAVAILABLE
@@ -266,13 +271,22 @@ private fun StepCity(city: City?, language: String, onCity: (City?) -> Unit) {
                 )
             }
         }
-        Spacer(Modifier.height(8.dp))
+        if (status != LocationPickerStatus.FOUND) {
+            TextButton(
+                onClick = { manualRequested = !manualRequested },
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text(text = stringResource(R.string.onboarding_manual))
+            }
+        }
+        Spacer(Modifier.height(4.dp))
         Text(
             text = city?.let { stringResource(R.string.onboarding_city_selected, it.displayLabel(language)) }
                 ?: stringResource(R.string.onboarding_city_none),
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
+        if (!showManual) return@Column
         Spacer(Modifier.height(8.dp))
         OutlinedTextField(
             colors = NaqaaOutlinedTextFieldColors(),

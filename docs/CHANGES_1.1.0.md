@@ -55,3 +55,23 @@ Each item: what changed, why, and how the new logic works.
 - `.github/workflows/build.yml`: a push to `main` publishes release `v<versionName>` when it
   does not exist yet; if it exists the run succeeds without publishing.
 - Version 1.1.0 (code 11).
+
+## Logging and habits
+- `ui/AppViewModel.kt` `log()`: a plain one-tap record is ignored when the same kind was saved
+  in the last 3 seconds, posts a quiet notice (`Notices.logged`, channel `log`, fades after
+  6 s) and, for a lapse, sets `feelingTarget`. `annotate()` adds feeling and trigger to the
+  saved record through `JournalStore.update`.
+- `ui/screens/FeelingPrompt.kt`: dialog driven by `feelingTarget`, shown from `AppShell` on any
+  screen. Phase one picks feeling and trigger; phase two shows the next steps.
+- `ui/screens/HomeScreen.kt`: `HabitsCard` counts today's events per kind; the quick log is two
+  buttons (resisted, lapse).
+- `ui/screens/AdhkarScreen.kt`: single flow with a circular counter, previous and next.
+
+## Setup, widget, icons
+- `OnboardingScreen.kt` `StepCity`: the manual list shows only after "Choose manually" or when
+  location failed, never after a city was found from the location.
+- `Common.kt` `AccessibilityPermissionRow`: on API 33+ a dialog lists the restricted-settings
+  steps before opening the system page.
+- `widget/ProgressWidget.kt` and `layout/progress_widget.xml`: plan day line, opens the plan.
+- Launcher artwork in `res/drawable/ic_launcher*_foreground.xml` and `values/colors.xml`;
+  `LauncherIcons.kt` draws it as an image so its colours are kept.

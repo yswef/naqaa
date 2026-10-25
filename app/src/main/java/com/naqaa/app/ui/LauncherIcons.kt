@@ -4,7 +4,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Icon
+import androidx.compose.foundation.Image
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -21,10 +21,10 @@ import com.naqaa.app.data.Persona
 @Composable
 fun PersonaMark(persona: Persona, modifier: Modifier = Modifier, size: Int = 48) {
     val background = when (persona) {
-        Persona.NAQAA -> Color(0xFF176B58)
-        Persona.CALCULATOR -> Color(0xFF3B4A56)
-        Persona.NOTES -> Color(0xFF8A6A3B)
-        Persona.TASKS -> Color(0xFF4A5D3A)
+        Persona.NAQAA -> Color(0xFF0E5E4C)
+        Persona.CALCULATOR -> Color(0xFF2F3E4A)
+        Persona.NOTES -> Color(0xFFE8B23A)
+        Persona.TASKS -> Color(0xFF5560D9)
     }
     val icon = when (persona) {
         Persona.NAQAA -> R.drawable.ic_launcher_foreground
@@ -38,10 +38,10 @@ fun PersonaMark(persona: Persona, modifier: Modifier = Modifier, size: Int = 48)
             .clip(RoundedCornerShape((size / 4).dp))
             .background(background)
     ) {
-        Icon(
+        // Drawn as an image: the artwork has its own colours, which a tint would flatten.
+        Image(
             painter = painterResource(icon),
             contentDescription = null,
-            tint = Color.White,
             modifier = Modifier.size(size.dp)
         )
     }

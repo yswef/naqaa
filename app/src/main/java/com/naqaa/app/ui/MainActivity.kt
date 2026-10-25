@@ -110,6 +110,7 @@ class MainActivity : ComponentActivity() {
             Screens.EMERGENCY -> Destination.EMERGENCY
             Screens.PROTECTION -> Destination.PROTECTION
             Screens.PRAYER -> Destination.PRAYER
+            Screens.PLAN -> Destination.PLAN
             else -> null
         }
 

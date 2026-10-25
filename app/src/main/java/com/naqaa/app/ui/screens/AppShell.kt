@@ -104,4 +104,5 @@ fun AppShell(viewModel: AppViewModel, state: UiState, requested: Destination? = 
             }
         }
     }
+    FeelingPrompt(viewModel)
 }

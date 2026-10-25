@@ -9,6 +9,8 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Button
+import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.MaterialTheme
@@ -120,33 +122,32 @@ fun HomeScreen(viewModel: AppViewModel, state: UiState, onNavigate: (Destination
             }
         }
 
+        HabitsCard(viewModel, state, onNavigate)
+
         SectionCard(title = stringResource(R.string.home_quick_log)) {
-            Text(text = stringResource(R.string.home_quick_log_hint), style = MaterialTheme.typography.bodySmall)
-            Spacer(Modifier.height(10.dp))
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                AppViewModel.logLabels.chunked(2).forEach { pair ->
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
-                        pair.forEach { (kind, label) ->
-                            OutlinedButton(
-                                onClick = { viewModel.quickLog(kind) },
-                                modifier = Modifier.weight(1f)
-                            ) {
-                                Text(text = stringResource(label), maxLines = 2)
-                            }
-                        }
-                        if (pair.size == 1) Spacer(Modifier.weight(1f))
-                    }
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                Button(
+                    onClick = { viewModel.quickLog(EventKind.RESISTED) },
+                    modifier = Modifier.weight(1f).heightIn(min = 48.dp)
+                ) {
+                    Text(text = stringResource(R.string.log_resisted), maxLines = 2)
+                }
+                OutlinedButton(
+                    onClick = { viewModel.quickLog(EventKind.LAPSE) },
+                    modifier = Modifier.weight(1f).heightIn(min = 48.dp)
+                ) {
+                    Text(text = stringResource(R.string.log_lapse), maxLines = 2)
                 }
             }
             Spacer(Modifier.height(6.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
                     text = stringResource(R.string.home_logged_count, state.events.size),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.weight(1f).align(Alignment.CenterVertically)
+                    modifier = Modifier.weight(1f)
                 )
-                OutlinedButton(onClick = { onNavigate(Destination.JOURNAL) }) {
+                TextButton(onClick = { onNavigate(Destination.JOURNAL) }) {
                     Text(text = stringResource(R.string.home_add_details))
                 }
             }
@@ -201,3 +202,70 @@ fun HomeScreen(viewModel: AppViewModel, state: UiState, onNavigate: (Destination
 
 private fun blockedTodayLabel(state: UiState): String =
     if (state.vpnRunning) VpnState.blockedCount().toString() else "0"
+
+/** The four things worth doing every day, each marked once with its state shown at a glance. */
+@Composable
+private fun HabitsCard(viewModel: AppViewModel, state: UiState, onNavigate: (Destination) -> Unit) {
+    val zone = ZoneId.systemDefault()
+    val today = java.time.LocalDate.now(zone)
+    val counts = remember(state.events) {
+        state.events
+            .filter { java.time.LocalDate.ofInstant(it.at, zone) == today }
+            .groupingBy { it.kind }
+            .eachCount()
+    }
+    val prayers = counts[EventKind.PRAYER] ?: 0
+    SectionCard(title = stringResource(R.string.home_habits)) {
+        HabitRow(
+            title = stringResource(R.string.habit_prayer),
+            status = stringResource(R.string.habit_count, prayers, PRAYERS_PER_DAY),
+            done = prayers >= PRAYERS_PER_DAY,
+            action = stringResource(R.string.habit_mark),
+            onAction = { viewModel.log(EventKind.PRAYER) }
+        )
+        HabitRow(
+            title = stringResource(R.string.habit_adhkar),
+            status = null,
+            done = (counts[EventKind.ADHKAR] ?: 0) > 0,
+            action = stringResource(R.string.start),
+            onAction = { onNavigate(Destination.ADHKAR) }
+        )
+        HabitRow(
+            title = stringResource(R.string.habit_quran),
+            status = null,
+            done = (counts[EventKind.QURAN] ?: 0) > 0,
+            action = stringResource(R.string.habit_mark),
+            onAction = { viewModel.log(EventKind.QURAN) }
+        )
+    }
+}
+
+@Composable
+private fun HabitRow(title: String, status: String?, done: Boolean, action: String, onAction: () -> Unit) {
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text(text = title, style = MaterialTheme.typography.bodyLarge)
+            if (status != null) {
+                Text(
+                    text = status,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+        if (done) {
+            Text(
+                text = stringResource(R.string.habit_done),
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.primary
+            )
+        } else {
+            FilledTonalButton(onClick = onAction) { Text(text = action) }
+        }
+    }
+}
+
+private const val PRAYERS_PER_DAY = 5

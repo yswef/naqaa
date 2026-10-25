@@ -3,7 +3,37 @@
 All notable changes to this project are recorded here. The format follows the usual
 sections: added, changed, fixed and removed.
 
+## 1.1.1 - 2026-10-25
+
+### Fixed
+
+- Headings and body text on the first screens were black on the dark background in dark mode.
+  The theme now sets the content colour for every screen.
+- The pause between two saved records of the same button is one minute instead of three seconds.
+
+### Added
+
+- Accessibility can be switched on directly after a one-time `adb shell pm grant` of
+  `WRITE_SECURE_SETTINGS`, which avoids the "restricted setting" block that sideloaded apps
+  meet on Android 13 and later. The permission is never granted at install.
+- "Copy report" in the accessibility dialog: device, Android version, installer, restricted
+  setting state and whether the settings pages open. Used to find why a device still refuses.
+
 ## 1.1.0 - 2026-10-25
+
+### Added
+
+- Saving a lapse takes one tap. A quiet notice confirms it, a second tap within three
+  seconds is not a second record, and a short sheet asks how it felt and what led to it, then
+  lists the steps for the rest of the day.
+- "My habits today" on the home screen: prayers counted to five, remembrance and the Quran
+  portion marked once each, with the state of every row visible.
+- The remembrance screen reads one item after another with a large counter to tap, opens on
+  the morning or evening set by the hour, and moves on by itself.
+- A step-by-step guide for Android 13 and newer, where the system blocks the accessibility
+  switch for an app installed by hand until restricted settings are allowed.
+- The step of the day from the thirty day plan appears on the home screen widget.
+- New launcher icons for the application and for the three neutral entries.
 
 ### Fixed
 
@@ -35,6 +65,8 @@ sections: added, changed, fixed and removed.
   long journal much faster, and the screen state is no longer rebuilt for every filtered name.
 - An earlier failure is no longer put in front of the user at start; the text is kept in
   `previous-error.txt` next to `last-error.txt` for anyone reading the folder from a computer.
+- Setup offers location first; the manual city list opens from a button below it and stays
+  hidden once a city was found from the location.
 - Interface: rounded cards, larger Arabic text spacing, the emergency button directly under
   the counter, quick log in two columns, wrapping chips, application names instead of package
   names, and each screen opens at its top.

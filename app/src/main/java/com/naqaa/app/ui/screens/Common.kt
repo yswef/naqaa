@@ -7,10 +7,13 @@ import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.MaterialTheme
@@ -158,8 +161,45 @@ fun PermissionRow(
 fun AccessibilityPermissionRow() {
     val context = LocalContext.current
     var attempted by remember { mutableStateOf(false) }
+    var showSteps by remember { mutableStateOf(false) }
     val resumeToken = rememberResumeToken()
-    val enabled = remember(resumeToken) { SystemGate.accessibilityEnabled(context) }
+    var tick by remember { mutableStateOf(0) }
+    val enabled = remember(resumeToken, tick) { SystemGate.accessibilityEnabled(context) }
+    if (showSteps) {
+        // From Android 13 the system refuses this service for a sideloaded app until the user
+        // allows restricted settings on its info page, which cannot be done from inside the app.
+        AlertDialog(
+            onDismissRequest = { showSteps = false },
+            title = { Text(text = stringResource(R.string.accessibility_steps_title)) },
+            text = {
+                Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
+                    Text(text = stringResource(R.string.accessibility_steps_body), style = MaterialTheme.typography.bodyMedium)
+                    Spacer(Modifier.height(10.dp))
+                    Text(text = stringResource(R.string.accessibility_adb_body), style = MaterialTheme.typography.bodySmall)
+                    Spacer(Modifier.height(6.dp))
+                    Text(text = SystemGate.adbGrantCommand(context), style = MaterialTheme.typography.bodySmall)
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    showSteps = false
+                    attempted = true
+                    SystemGate.openSettings(context, SystemGate.accessibilitySettings())
+                }) { Text(text = stringResource(R.string.accessibility_open_settings)) }
+            },
+            dismissButton = {
+                Row {
+                    TextButton(onClick = {
+                        copyText(context, SystemGate.accessibilityReport(context))
+                    }) { Text(text = stringResource(R.string.accessibility_copy_report)) }
+                    TextButton(onClick = {
+                        showSteps = false
+                        SystemGate.openSettings(context, SystemGate.appDetailsSettings(context))
+                    }) { Text(text = stringResource(R.string.permission_app_info)) }
+                }
+            }
+        )
+    }
     Column {
         PermissionRow(
             title = stringResource(R.string.permission_accessibility),
@@ -167,8 +207,15 @@ fun AccessibilityPermissionRow() {
             grantedText = stringResource(R.string.permission_enabled),
             missingText = stringResource(R.string.permission_needed),
             onEnable = {
-                attempted = true
-                SystemGate.openSettings(context, SystemGate.accessibilitySettings())
+                if (SystemGate.enableAccessibilityDirect(context)) {
+                    // Granted over adb earlier: no blocked screen involved.
+                    tick++
+                } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                    showSteps = true
+                } else {
+                    attempted = true
+                    SystemGate.openSettings(context, SystemGate.accessibilitySettings())
+                }
             }
         )
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && attempted && !enabled) {
@@ -290,5 +337,14 @@ fun ScreenTitle(title: String, subtitle: String? = null) {
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
+    }
+}
+
+/** Puts text on the clipboard and says so; used for reports the user sends back. */
+fun copyText(context: android.content.Context, text: String) {
+    runCatching {
+        val clipboard = context.getSystemService(android.content.ClipboardManager::class.java)
+        clipboard.setPrimaryClip(android.content.ClipData.newPlainText("naqaa", text))
+        android.widget.Toast.makeText(context, R.string.report_copied, android.widget.Toast.LENGTH_SHORT).show()
     }
 }

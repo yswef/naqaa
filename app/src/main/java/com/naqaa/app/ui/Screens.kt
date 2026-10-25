@@ -19,6 +19,7 @@ object Screens {
     const val EMERGENCY = "emergency"
     const val PROTECTION = "protection"
     const val PRAYER = "prayer"
+    const val PLAN = "plan"
 
     fun mainActivity(context: Context): ComponentName =
         ComponentName(context.packageName, "${context.packageName}.ui.MainActivity")

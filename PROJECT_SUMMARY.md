@@ -13,7 +13,8 @@
   (tests, release APK, signing from NAQAA_* secrets, release `v<versionName>`).
 - No Android SDK in the assistant's sandbox: nothing was compiled locally; Kotlin syntax was
   checked with kotlinc only. First CI run is the real compile.
-- Version now 1.1.0 (code 11); details in `docs/CHANGES_1.1.0.md` and `CHANGELOG.md`.
+- Version now 1.1.1 (code 12); details in `docs/CHANGES_1.1.0.md`, `docs/CHANGES_1.1.1.md`, `CHANGELOG.md`.
+- Open: accessibility still blocked on the owner's Oppo (ColorOS) even after allowing restricted settings; waiting for the copied report. Face/female detection was dropped by the owner.
 
 ## Full details
 - Strings must exist in both `values/` and `values-en/`; `tools/check_strings.py` runs in CI.

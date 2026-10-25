@@ -2,10 +2,10 @@
 <resources>
     <color name="brand">#176B58</color>
     <color name="surface">#F7F6F1</color>
-    <color name="launcher_background">#176B58</color>
-    <color name="launcher_background_calculator">#3B4A56</color>
-    <color name="launcher_background_notes">#8A6A3B</color>
-    <color name="launcher_background_tasks">#4A5D3A</color>
+    <color name="launcher_background">#0E5E4C</color>
+    <color name="launcher_background_calculator">#2F3E4A</color>
+    <color name="launcher_background_notes">#E8B23A</color>
+    <color name="launcher_background_tasks">#5560D9</color>
     <color name="widget_background">#176B58</color>
     <color name="widget_text">#FFFFFF</color>
 </resources>
