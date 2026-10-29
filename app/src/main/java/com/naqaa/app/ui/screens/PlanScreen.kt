@@ -204,7 +204,9 @@ private fun PlanMap(
             .clip(RoundedCornerShape(22.dp))
             .border(1.dp, Brush.linearGradient(listOf(primary, secondary)), RoundedCornerShape(22.dp))
     ) {
-        val widthPx = with(density) { maxWidth.toPx() }
+        // Taken here: inside the nested Box the outer scope's maxWidth is not reachable implicitly.
+        val widthDp = maxWidth
+        val widthPx = with(density) { widthDp.toPx() }
         val heightPx = with(density) { heightDp.toPx() }
         val unit = density.density
         val points = remember(widthPx, heightPx, count) { layoutPoints(count, widthPx, heightPx, unit) }
@@ -223,7 +225,7 @@ private fun PlanMap(
         androidx.compose.foundation.layout.Box(modifier = Modifier.verticalScroll(scroll)) {
             Canvas(
                 modifier = Modifier
-                    .width(maxWidth)
+                    .width(widthDp)
                     .height(heightDp)
                     .pointerInput(points, selected) {
                         detectTapGestures { tap ->
