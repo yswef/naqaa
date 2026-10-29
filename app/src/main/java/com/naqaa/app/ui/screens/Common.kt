@@ -1,6 +1,15 @@
 package com.naqaa.app.ui.screens
 
 import android.os.Build
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.runtime.produceState
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.core.graphics.drawable.toBitmap
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
@@ -48,10 +57,25 @@ fun SectionCard(
     title: String? = null,
     content: @Composable ColumnScope.() -> Unit
 ) {
+    val shape = MaterialTheme.shapes.large
+    val glow = MaterialTheme.colorScheme.primary
     Card(
-        modifier = modifier.fillMaxWidth().padding(vertical = 6.dp),
-        shape = MaterialTheme.shapes.large,
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(vertical = 6.dp)
+            .shadow(10.dp, shape, ambientColor = glow.copy(alpha = 0.5f), spotColor = glow.copy(alpha = 0.5f)),
+        shape = shape,
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.82f)),
+        border = BorderStroke(
+            1.dp,
+            Brush.linearGradient(
+                listOf(
+                    MaterialTheme.colorScheme.primary.copy(alpha = 0.85f),
+                    MaterialTheme.colorScheme.secondary.copy(alpha = 0.55f),
+                    MaterialTheme.colorScheme.tertiary.copy(alpha = 0.7f)
+                )
+            )
+        )
     ) {
         Column(modifier = Modifier.padding(18.dp)) {
             if (title != null) {
@@ -65,6 +89,23 @@ fun SectionCard(
             content()
         }
     }
+}
+
+/**
+ * The launcher icon of an installed package, loaded off the main thread. It is null until
+ * the image is ready (or when the package has no icon), so a grid can draw a placeholder.
+ */
+@Composable
+fun rememberAppIcon(packageName: String, sizePx: Int = 96): ImageBitmap? {
+    val context = LocalContext.current
+    val icon by produceState<ImageBitmap?>(initialValue = null, packageName) {
+        value = withContext(Dispatchers.Default) {
+            runCatching {
+                context.packageManager.getApplicationIcon(packageName).toBitmap(sizePx, sizePx).asImageBitmap()
+            }.getOrNull()
+        }
+    }
+    return icon
 }
 
 /**

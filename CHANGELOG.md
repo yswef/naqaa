@@ -3,6 +3,10 @@
 All notable changes to this project are recorded here. The format follows the usual
 sections: added, changed, fixed and removed.
 
+## 1.2.0
+
+Neon theme, accounts + hidden developer session, encrypted backup/transfer, prayer time offsets and on-time/late logging, game-map plan, adhan/hadith audio, other-VPN block, multi-app lock picker, timed allowances, Instagram clean-up. Details: docs/CHANGES_1.2.0.md
+
 ## 1.1.1 - 2026-10-25
 
 ### Fixed

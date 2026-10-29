@@ -1,6 +1,43 @@
 package com.naqaa.app.ui.screens
 
 import android.Manifest
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.safeDrawingPadding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Surface
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.mutableLongStateOf
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
+import com.naqaa.app.data.Session
+import com.naqaa.app.guard.UsagePass
+import com.naqaa.app.ui.theme.NaqaaOutlinedTextFieldColors
+import com.naqaa.app.ui.theme.Neon
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.withContext
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
@@ -47,7 +84,7 @@ import com.naqaa.app.vpn.VpnState
 
 /** Local filtering, app locks, schedules, and permission status. */
 @Composable
-fun ProtectionScreen(viewModel: AppViewModel, state: UiState) {
+fun ProtectionScreen(viewModel: AppViewModel, state: UiState, onOpenCleanup: () -> Unit = {}) {
     val context = LocalContext.current
     val language = state.preferences.language
     val display = LocaleX.displayLocale(language)
@@ -149,11 +186,44 @@ fun ProtectionScreen(viewModel: AppViewModel, state: UiState) {
                 onCheckedChange = { value -> viewModel.update { it.copy(nightMode = value) } }
             )
             SettingSwitch(
+                title = stringResource(R.string.protection_block_vpn),
+                subtitle = stringResource(R.string.protection_block_vpn_hint),
+                checked = state.preferences.blockOtherVpn,
+                onCheckedChange = { value -> viewModel.update { it.copy(blockOtherVpn = value) } }
+            )
+            SettingSwitch(
                 title = stringResource(R.string.protection_auto_start),
                 subtitle = stringResource(R.string.protection_auto_start_hint),
                 checked = state.preferences.vpnAutoStart,
                 onCheckedChange = { value -> viewModel.update { it.copy(vpnAutoStart = value) } }
             )
+        }
+
+        ShortsPassCard(state)
+
+        SectionCard(title = stringResource(R.string.protection_vpn_report)) {
+            Text(
+                text = stringResource(R.string.protection_vpn_report_hint),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Spacer(Modifier.height(8.dp))
+            OutlinedButton(
+                onClick = { copyText(context, com.naqaa.app.util.Diagnostics.vpnReport(context)) },
+                modifier = Modifier.fillMaxWidth()
+            ) { Text(text = stringResource(R.string.protection_vpn_report_copy)) }
+        }
+
+        SectionCard(title = stringResource(R.string.cleanup_title)) {
+            Text(
+                text = stringResource(R.string.cleanup_card_hint),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Spacer(Modifier.height(8.dp))
+            OutlinedButton(onClick = onOpenCleanup, modifier = Modifier.fillMaxWidth()) {
+                Text(text = stringResource(R.string.cleanup_open))
+            }
         }
 
         SectionCard(title = stringResource(R.string.protection_locked_apps)) {
@@ -162,7 +232,14 @@ fun ProtectionScreen(viewModel: AppViewModel, state: UiState) {
             }
             state.preferences.lockedApps.forEach { rule ->
                 Column(modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp)) {
-                    Text(text = appLabel(rule.packageName), style = MaterialTheme.typography.bodyLarge)
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        val icon = rememberAppIcon(rule.packageName)
+                        if (icon != null) {
+                            Image(bitmap = icon, contentDescription = null, modifier = Modifier.size(36.dp).clip(RoundedCornerShape(10.dp)))
+                            Spacer(Modifier.width(10.dp))
+                        }
+                        Text(text = appLabel(rule.packageName), style = MaterialTheme.typography.bodyLarge)
+                    }
                     val selected = LockPreset.of(rule)
                     Text(
                         text = selected?.let { stringResource(it.label) }
@@ -254,9 +331,12 @@ fun ProtectionScreen(viewModel: AppViewModel, state: UiState) {
             excluded = state.preferences.lockedApps.map { it.packageName }.toSet(),
             own = context.packageName,
             onDismiss = { showPicker = false },
-            onPick = { packageName ->
+            onPick = { packages, preset ->
                 viewModel.update { preferences ->
-                    preferences.copy(lockedApps = preferences.lockedApps + LockRule(packageName, 0, 0))
+                    preferences.copy(
+                        lockedApps = preferences.lockedApps +
+                            packages.map { LockRule(it, preset.startMinute, preset.endMinute) }
+                    )
                 }
                 showPicker = false
             }
@@ -265,7 +345,7 @@ fun ProtectionScreen(viewModel: AppViewModel, state: UiState) {
 }
 
 /** The time windows offered for a locked application. */
-private enum class LockPreset(val label: Int, val startMinute: Int, val endMinute: Int) {
+internal enum class LockPreset(val label: Int, val startMinute: Int, val endMinute: Int) {
     ALL_DAY(R.string.preset_all_day, 0, 0),
     NIGHT(R.string.preset_night, 22 * 60, 6 * 60),
     EVENING(R.string.preset_evening, 18 * 60, 23 * 60),
@@ -279,58 +359,250 @@ private enum class LockPreset(val label: Int, val startMinute: Int, val endMinut
     }
 }
 
+private data class AppEntry(val packageName: String, val label: String)
+
+/**
+ * Full screen picker for the applications to lock: a grid of launcher icons with a search
+ * field. Any number can be selected at once; the chosen window applies to all of them.
+ */
 @Composable
 internal fun AppPicker(
     excluded: Set<String>,
     own: String,
     onDismiss: () -> Unit,
-    onPick: (String) -> Unit
+    onPick: (Set<String>, LockPreset) -> Unit
 ) {
     val context = LocalContext.current
-    val applications = remember {
-        val manager = context.packageManager
-        val intent = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER)
-        manager.queryIntentActivities(intent, 0)
-            .mapNotNull { it.activityInfo?.applicationInfo }
-            .distinctBy { it.packageName }
-            .filter { it.packageName != own && it.packageName !in excluded }
-            .map { it.packageName to manager.getApplicationLabel(it).toString() }
-            .sortedBy { it.second }
-    }
-    var selected by remember { mutableStateOf<String?>(null) }
+    var apps by remember { mutableStateOf<List<AppEntry>?>(null) }
+    var query by remember { mutableStateOf("") }
+    var selected by remember { mutableStateOf(setOf<String>()) }
+    var preset by remember { mutableStateOf(LockPreset.ALL_DAY) }
 
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(text = stringResource(R.string.protection_pick_app)) },
-        text = {
-            Column {
-                if (applications.isEmpty()) {
-                    Text(text = stringResource(R.string.protection_pick_app_empty))
-                }
-                LazyColumn(modifier = Modifier.fillMaxWidth().height(360.dp)) {
-                    items(applications, key = { it.first }) { entry ->
-                        Row(
-                            modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp),
-                            verticalAlignment = Alignment.CenterVertically
+    LaunchedEffect(Unit) {
+        apps = withContext(Dispatchers.Default) {
+            val manager = context.packageManager
+            val intent = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER)
+            manager.queryIntentActivities(intent, 0)
+                .mapNotNull { it.activityInfo?.applicationInfo }
+                .distinctBy { it.packageName }
+                .filter { it.packageName != own && it.packageName !in excluded }
+                .map { AppEntry(it.packageName, manager.getApplicationLabel(it).toString()) }
+                .sortedBy { it.label.lowercase() }
+        }
+    }
+    val visible = remember(apps, query) {
+        apps.orEmpty().filter { query.isBlank() || it.label.contains(query.trim(), ignoreCase = true) }
+    }
+
+    Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
+        Surface(
+            modifier = Modifier.fillMaxSize().padding(8.dp),
+            shape = RoundedCornerShape(26.dp),
+            color = MaterialTheme.colorScheme.surface.copy(alpha = 0.98f),
+            border = BorderStroke(1.5.dp, Brush.linearGradient(listOf(Neon.Cyan, Neon.Violet, Neon.Magenta)))
+        ) {
+            Column(modifier = Modifier.safeDrawingPadding().padding(16.dp)) {
+                Text(
+                    text = stringResource(R.string.protection_pick_app),
+                    style = MaterialTheme.typography.titleLarge,
+                    color = MaterialTheme.colorScheme.primary
+                )
+                Spacer(Modifier.height(10.dp))
+                OutlinedTextField(
+                    colors = NaqaaOutlinedTextFieldColors(),
+                    value = query,
+                    onValueChange = { query = it },
+                    singleLine = true,
+                    label = { Text(text = stringResource(R.string.search)) },
+                    modifier = Modifier.fillMaxWidth()
+                )
+                Spacer(Modifier.height(10.dp))
+                Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
+                    when {
+                        apps == null -> CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
+                        visible.isEmpty() -> Text(
+                            text = stringResource(R.string.protection_pick_app_empty),
+                            modifier = Modifier.align(Alignment.Center)
+                        )
+                        else -> LazyVerticalGrid(
+                            columns = GridCells.Adaptive(84.dp),
+                            modifier = Modifier.fillMaxSize(),
+                            verticalArrangement = Arrangement.spacedBy(10.dp),
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
                         ) {
-                            Checkbox(
-                                checked = selected == entry.first,
-                                onCheckedChange = { selected = if (selected == entry.first) null else entry.first }
-                            )
-                            Text(text = entry.second, style = MaterialTheme.typography.bodyLarge)
+                            items(visible, key = { it.packageName }) { entry ->
+                                val on = entry.packageName in selected
+                                AppTile(entry, on) {
+                                    selected = if (on) selected - entry.packageName else selected + entry.packageName
+                                }
+                            }
                         }
                     }
                 }
+                Spacer(Modifier.height(8.dp))
+                ChipFlow {
+                    LockPreset.entries.forEach { option ->
+                        FilterChip(
+                            selected = preset == option,
+                            onClick = { preset = option },
+                            label = { Text(text = stringResource(option.label)) },
+                            modifier = Modifier.padding(top = 3.dp, bottom = 3.dp)
+                        )
+                    }
+                }
+                Spacer(Modifier.height(8.dp))
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedButton(onClick = onDismiss, modifier = Modifier.weight(1f)) {
+                        Text(text = stringResource(R.string.cancel))
+                    }
+                    Button(
+                        onClick = { onPick(selected, preset) },
+                        enabled = selected.isNotEmpty(),
+                        modifier = Modifier.weight(2f)
+                    ) {
+                        Text(text = stringResource(R.string.protection_lock_selected, selected.size))
+                    }
+                }
             }
-        },
-        confirmButton = {
-            TextButton(
-                onClick = { selected?.let(onPick) },
-                enabled = selected != null
-            ) { Text(text = stringResource(R.string.confirm)) }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) { Text(text = stringResource(R.string.cancel)) }
         }
-    )
+    }
+}
+
+/** One application: its icon in a rounded tile that lights up and grows when it is selected. */
+@Composable
+private fun AppTile(entry: AppEntry, selected: Boolean, onToggle: () -> Unit) {
+    val icon = rememberAppIcon(entry.packageName)
+    val scale by animateFloatAsState(if (selected) 1.08f else 1f, label = "tile")
+    val ring = if (selected) Neon.Cyan else Color.Transparent
+    Column(
+        modifier = Modifier
+            .clip(RoundedCornerShape(16.dp))
+            .clickable(onClick = onToggle)
+            .padding(4.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Box(contentAlignment = Alignment.Center) {
+            Box(
+                modifier = Modifier
+                    .size(62.dp)
+                    .scale(scale)
+                    .clip(RoundedCornerShape(18.dp))
+                    .background(
+                        if (selected) Neon.Cyan.copy(alpha = 0.18f) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f)
+                    )
+                    .border(2.dp, ring, RoundedCornerShape(18.dp)),
+                contentAlignment = Alignment.Center
+            ) {
+                if (icon != null) {
+                    Image(bitmap = icon, contentDescription = null, modifier = Modifier.size(46.dp))
+                }
+            }
+            if (selected) {
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .size(22.dp)
+                        .clip(CircleShape)
+                        .background(Neon.Cyan),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(text = "✓", color = Color(0xFF001A20), style = MaterialTheme.typography.labelMedium)
+                }
+            }
+        }
+        Spacer(Modifier.height(4.dp))
+        Text(
+            text = entry.label,
+            style = MaterialTheme.typography.labelSmall,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.width(78.dp),
+            textAlign = TextAlign.Center
+        )
+    }
+}
+
+/**
+ * The time the user gives himself for short videos. While a pass runs the short video rules
+ * stand aside; when it ends the next block arrives as a screen saying the time is over. The
+ * pass is kept in memory only, and starting one asks for the PIN (the developer session
+ * does not).
+ */
+@Composable
+private fun ShortsPassCard(state: UiState) {
+    var remaining by remember { mutableLongStateOf(UsagePass.shortsRemainingSeconds()) }
+    var askingFor by remember { mutableStateOf<Int?>(null) }
+    var custom by remember { mutableStateOf("") }
+
+    LaunchedEffect(Unit) {
+        while (true) {
+            remaining = UsagePass.shortsRemainingSeconds()
+            delay(1_000)
+        }
+    }
+
+    fun begin(minutes: Int) {
+        if (Session.developer || !state.preferences.hasPin) {
+            UsagePass.allowShorts(minutes)
+            remaining = UsagePass.shortsRemainingSeconds()
+        } else {
+            askingFor = minutes
+        }
+    }
+
+    SectionCard(title = stringResource(R.string.pass_title)) {
+        Text(
+            text = stringResource(R.string.pass_hint),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Spacer(Modifier.height(8.dp))
+        if (remaining > 0) {
+            StatLine(stringResource(R.string.pass_remaining), TimeX.countdown(remaining))
+            OutlinedButton(
+                onClick = {
+                    UsagePass.cancelShorts()
+                    remaining = 0
+                },
+                modifier = Modifier.fillMaxWidth()
+            ) { Text(text = stringResource(R.string.pass_end_now)) }
+        } else {
+            ChipFlow {
+                listOf(15, 30, 60, 120).forEach { minutes ->
+                    FilterChip(
+                        selected = false,
+                        onClick = { begin(minutes) },
+                        label = { Text(text = stringResource(R.string.minutes_short, minutes)) },
+                        modifier = Modifier.padding(top = 3.dp, bottom = 3.dp)
+                    )
+                }
+            }
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                OutlinedTextField(
+                    colors = NaqaaOutlinedTextFieldColors(),
+                    value = custom,
+                    onValueChange = { custom = it.filter(Char::isDigit).take(3) },
+                    singleLine = true,
+                    label = { Text(text = stringResource(R.string.pass_custom)) },
+                    modifier = Modifier.weight(1f)
+                )
+                Spacer(Modifier.width(8.dp))
+                Button(
+                    onClick = { custom.toIntOrNull()?.takeIf { it in 1..600 }?.let(::begin) },
+                    enabled = custom.toIntOrNull()?.let { it in 1..600 } == true
+                ) { Text(text = stringResource(R.string.start)) }
+            }
+        }
+    }
+    askingFor?.let { minutes ->
+        PinPrompt(
+            preferences = state.preferences,
+            onCancel = { askingFor = null },
+            onSuccess = {
+                askingFor = null
+                UsagePass.allowShorts(minutes)
+                remaining = UsagePass.shortsRemainingSeconds()
+            }
+        )
+    }
 }

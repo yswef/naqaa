@@ -5,6 +5,7 @@ import android.content.pm.PackageManager
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -60,6 +61,7 @@ fun PrayerScreen(viewModel: AppViewModel, state: UiState, onOpenAdhkar: () -> Un
     var showCities by remember { mutableStateOf(false) }
     var locationLoading by remember { mutableStateOf(false) }
     var locationFailed by remember { mutableStateOf(false) }
+    var editingTimes by remember { mutableStateOf(false) }
 
     val locationPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
         if (!granted) {
@@ -92,10 +94,39 @@ fun PrayerScreen(viewModel: AppViewModel, state: UiState, onOpenAdhkar: () -> Un
             } else {
                 val next = state.nextPrayer
                 times.ordered().forEach { (name, at) ->
-                    StatLine(
-                        label = prayerLabel(name) + if (next?.first == name) "  •" else "",
-                        value = TimeX.clock(at, zone, display)
-                    )
+                    if (editingTimes) {
+                        val offset = state.preferences.prayerOffsets[name.name] ?: 0
+                        OffsetRow(
+                            label = prayerLabel(name),
+                            time = TimeX.clock(at, zone, display),
+                            offset = offset,
+                            onChange = { minutes ->
+                                viewModel.update {
+                                    it.copy(
+                                        prayerOffsets = if (minutes == 0) it.prayerOffsets - name.name
+                                        else it.prayerOffsets + (name.name to minutes.coerceIn(-MAX_OFFSET, MAX_OFFSET))
+                                    )
+                                }
+                            }
+                        )
+                    } else {
+                        StatLine(
+                            label = prayerLabel(name) + if (next?.first == name) "  •" else "",
+                            value = TimeX.clock(at, zone, display)
+                        )
+                    }
+                }
+                Spacer(Modifier.height(6.dp))
+                Row {
+                    OutlinedButton(onClick = { editingTimes = !editingTimes }, modifier = Modifier.weight(1f)) {
+                        Text(text = stringResource(if (editingTimes) R.string.prayer_edit_done else R.string.prayer_edit))
+                    }
+                    if (editingTimes && state.preferences.prayerOffsets.isNotEmpty()) {
+                        Spacer(Modifier.width(8.dp))
+                        TextButton(onClick = { viewModel.update { it.copy(prayerOffsets = emptyMap()) } }) {
+                            Text(text = stringResource(R.string.prayer_edit_reset))
+                        }
+                    }
                 }
             }
             Spacer(Modifier.height(8.dp))
@@ -150,6 +181,8 @@ fun PrayerScreen(viewModel: AppViewModel, state: UiState, onOpenAdhkar: () -> Un
                 )
             }
         }
+
+        PrayerLogCard(viewModel, state)
 
         SectionCard(title = stringResource(R.string.prayer_method)) {
             ChipFlow {
@@ -271,3 +304,114 @@ private fun methodLabel(method: CalculationMethod): String = stringResource(
         CalculationMethod.DUBAI -> R.string.method_dubai
     }
 )
+
+private const val MAX_OFFSET = 60
+
+/** One prayer in edit mode: the resulting time and buttons that move it a minute or five. */
+@Composable
+private fun OffsetRow(label: String, time: String, offset: Int, onChange: (Int) -> Unit) {
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp),
+        verticalAlignment = androidx.compose.ui.Alignment.CenterVertically
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text(text = label, style = MaterialTheme.typography.bodyMedium)
+            Text(
+                text = time + if (offset != 0) "  (" + (if (offset > 0) "+$offset" else "$offset") + ")" else "",
+                style = MaterialTheme.typography.titleMedium
+            )
+        }
+        OutlinedButton(onClick = { onChange(offset - 5) }) { Text(text = "-5") }
+        Spacer(Modifier.width(4.dp))
+        OutlinedButton(onClick = { onChange(offset - 1) }) { Text(text = "-1") }
+        Spacer(Modifier.width(4.dp))
+        OutlinedButton(onClick = { onChange(offset + 1) }) { Text(text = "+1") }
+        Spacer(Modifier.width(4.dp))
+        OutlinedButton(onClick = { onChange(offset + 5) }) { Text(text = "+5") }
+    }
+}
+
+/**
+ * Which prayers were prayed today, and whether each was inside its time. A prayer can be
+ * marked once its time has come; marking it again changes the status. The window of a
+ * prayer ends where the next entry of the day starts (sunrise ends Fajr, for instance), and
+ * the button matching the current window is the one drawn filled.
+ */
+@Composable
+private fun PrayerLogCard(viewModel: AppViewModel, state: UiState) {
+    val times = state.todayTimes ?: return
+    val zone = ZoneId.systemDefault()
+    val today = LocalDate.now(zone)
+    val now = java.time.Instant.now()
+    val logged = remember(state.events) {
+        state.events
+            .filter { it.kind == EventKind.PRAYER && it.trigger.isNotEmpty() && LocalDate.ofInstant(it.at, zone) == today }
+            .associateBy { it.trigger }
+    }
+    val all = times.ordered()
+    val onTimeCount = logged.values.count { it.note == AppViewModel.PRAYER_ONTIME }
+    val lateCount = logged.values.count { it.note == AppViewModel.PRAYER_LATE }
+
+    SectionCard(title = stringResource(R.string.prayer_log_title)) {
+        Text(
+            text = stringResource(R.string.prayer_log_summary, onTimeCount, lateCount),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Spacer(Modifier.height(6.dp))
+        all.forEachIndexed { index, (name, at) ->
+            if (!name.isPrayer) return@forEachIndexed
+            val entry = logged[name.name.lowercase()]
+            val reached = !at.isAfter(now) || com.naqaa.app.data.Session.developer
+            val end = all.getOrNull(index + 1)?.second
+            val inWindow = end == null || now.isBefore(end)
+            Column(modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp)) {
+                Row(modifier = Modifier.fillMaxWidth()) {
+                    Text(text = prayerLabel(name), style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
+                    Text(
+                        text = stringResource(
+                            when {
+                                entry?.note == AppViewModel.PRAYER_ONTIME -> R.string.prayer_status_ontime
+                                entry?.note == AppViewModel.PRAYER_LATE -> R.string.prayer_status_late
+                                !reached -> R.string.prayer_not_yet
+                                else -> R.string.prayer_not_logged
+                            }
+                        ),
+                        style = MaterialTheme.typography.labelLarge,
+                        color = when {
+                            entry?.note == AppViewModel.PRAYER_ONTIME -> com.naqaa.app.ui.theme.Neon.Lime
+                            entry?.note == AppViewModel.PRAYER_LATE -> com.naqaa.app.ui.theme.Neon.Amber
+                            else -> MaterialTheme.colorScheme.onSurfaceVariant
+                        }
+                    )
+                }
+                Spacer(Modifier.height(4.dp))
+                Row(modifier = Modifier.fillMaxWidth()) {
+                    val onTimeSelected = entry?.note == AppViewModel.PRAYER_ONTIME
+                    val lateSelected = entry?.note == AppViewModel.PRAYER_LATE
+                    val onTimeFilled = onTimeSelected || (entry == null && inWindow)
+                    val lateFilled = lateSelected || (entry == null && !inWindow)
+                    if (onTimeFilled) {
+                        Button(onClick = { viewModel.logPrayer(name, true) }, enabled = reached, modifier = Modifier.weight(1f)) {
+                            Text(text = stringResource(R.string.prayer_on_time))
+                        }
+                    } else {
+                        OutlinedButton(onClick = { viewModel.logPrayer(name, true) }, enabled = reached, modifier = Modifier.weight(1f)) {
+                            Text(text = stringResource(R.string.prayer_on_time))
+                        }
+                    }
+                    Spacer(Modifier.width(8.dp))
+                    if (lateFilled) {
+                        Button(onClick = { viewModel.logPrayer(name, false) }, enabled = reached, modifier = Modifier.weight(1f)) {
+                            Text(text = stringResource(R.string.prayer_late))
+                        }
+                    } else {
+                        OutlinedButton(onClick = { viewModel.logPrayer(name, false) }, enabled = reached, modifier = Modifier.weight(1f)) {
+                            Text(text = stringResource(R.string.prayer_late))
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

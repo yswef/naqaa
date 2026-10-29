@@ -36,6 +36,7 @@ import androidx.compose.ui.unit.dp
 import com.naqaa.app.NaqaaApplication
 import com.naqaa.app.R
 import com.naqaa.app.content.Content
+import com.naqaa.app.data.Session
 import com.naqaa.app.guard.DelayGate
 import com.naqaa.app.guard.GuardGrace
 import com.naqaa.app.util.LocaleX
@@ -63,7 +64,7 @@ class DelayActivity : ComponentActivity() {
         val action = DelayGate.actionOf(intent.getStringExtra(EXTRA_ACTION))
         setContent {
             com.naqaa.app.ui.theme.NaqaaTheme {
-                Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
+                Surface(modifier = Modifier.fillMaxSize(), color = androidx.compose.ui.graphics.Color.Transparent) {
                     Screen(action = action)
                 }
             }
@@ -72,8 +73,9 @@ class DelayActivity : ComponentActivity() {
 
     @Composable
     private fun Screen(action: DelayGate.Action) {
-        var remaining by remember { mutableIntStateOf(DelayGate.DURATION.seconds.toInt()) }
-        var decided by remember { mutableStateOf(false) }
+        // The hidden developer session skips the wait so the features can be tried quickly.
+        var remaining by remember { mutableIntStateOf(if (Session.developer) 0 else DelayGate.DURATION.seconds.toInt()) }
+        var decided by remember { mutableStateOf(Session.developer) }
         val card = remember { Content.protectionCard() }
         val preferences = remember { (application as NaqaaApplication).graph.current() }
 
@@ -156,6 +158,7 @@ class DelayActivity : ComponentActivity() {
 
     private fun openSettings(action: DelayGate.Action) {
         if (action == DelayGate.Action.VPN_OFF) {
+            com.naqaa.app.vpn.VpnState.markStoppedByUser()
             runCatching {
                 (application as NaqaaApplication).graph.record(
                     kind = com.naqaa.app.data.EventKind.GUARD_OFF,

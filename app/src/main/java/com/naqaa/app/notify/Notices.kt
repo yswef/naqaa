@@ -6,10 +6,12 @@ import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.ContentResolver
 import android.content.Context
+import android.content.Intent
 import android.graphics.drawable.Icon
 import android.media.AudioAttributes
 import android.net.Uri
 import com.naqaa.app.R
+import com.naqaa.app.sound.SoundService
 import com.naqaa.app.ui.Screens
 
 /**
@@ -25,6 +27,8 @@ object Notices {
     const val ID_ADHKAR = 31
     const val ID_MOTIVATION = 32
     const val ID_LOG = 40
+    const val ID_VPN = 50
+    const val ID_SOUND = 60
 
     fun channels(context: Context) {
         val manager = context.getSystemService(NotificationManager::class.java)
@@ -45,6 +49,20 @@ object Notices {
                     chime(context),
                     AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_NOTIFICATION).build()
                 )
+            }
+        )
+        manager.createNotificationChannel(
+            // Used when a recording plays by itself: the text still shows, the system adds no sound.
+            NotificationChannel(CHANNEL_QUIET, context.getString(R.string.channel_prayer_quiet), NotificationManager.IMPORTANCE_DEFAULT).apply {
+                lockscreenVisibility = Notification.VISIBILITY_SECRET
+                setShowBadge(false)
+                setSound(null, null)
+            }
+        )
+        manager.createNotificationChannel(
+            NotificationChannel(CHANNEL_SOUND, context.getString(R.string.channel_sound), NotificationManager.IMPORTANCE_LOW).apply {
+                lockscreenVisibility = Notification.VISIBILITY_SECRET
+                setShowBadge(false)
             }
         )
         manager.createNotificationChannel(
@@ -117,9 +135,10 @@ object Notices {
         )
     }
 
-    fun prayerReminder(context: Context, prayer: String) {
+    /** [quiet] is true when a recording plays by itself, so the notification adds no second sound. */
+    fun prayerReminder(context: Context, prayer: String, quiet: Boolean = false) {
         post(
-            context, ID_PRAYER, builder(context, CHANNEL_PRAYER)
+            context, ID_PRAYER, builder(context, if (quiet) CHANNEL_QUIET else CHANNEL_PRAYER)
                 .setContentTitle(context.getString(R.string.notification_title))
                 .setContentText(context.getString(R.string.prayer_reminder_text, prayer))
                 .setAutoCancel(true)
@@ -128,10 +147,10 @@ object Notices {
         )
     }
 
-    fun adhkarReminder(context: Context, morning: Boolean) {
+    fun adhkarReminder(context: Context, morning: Boolean, quiet: Boolean = false) {
         val text = if (morning) R.string.adhkar_morning_reminder else R.string.adhkar_evening_reminder
         post(
-            context, ID_ADHKAR, builder(context, CHANNEL_REMINDER)
+            context, ID_ADHKAR, builder(context, if (quiet) CHANNEL_QUIET else CHANNEL_REMINDER)
                 .setContentTitle(context.getString(R.string.notification_title))
                 .setContentText(context.getString(text))
                 .setAutoCancel(true)
@@ -148,6 +167,35 @@ object Notices {
                 .setAutoCancel(true)
                 .setContentIntent(screen(context, Screens.HOME, 10))
                 .addAction(action(context, R.string.emergency, screen(context, Screens.EMERGENCY, 11)))
+                .build()
+        )
+    }
+
+    /** Shown while a recording plays; the action stops it. */
+    fun soundPlaying(context: Context): Notification = builder(context, CHANNEL_SOUND)
+        .setContentTitle(context.getString(R.string.notification_title))
+        .setContentText(context.getString(R.string.sound_playing))
+        .setOngoing(true)
+        .addAction(
+            action(
+                context, R.string.sound_stop,
+                PendingIntent.getService(
+                    context, 13,
+                    Intent(context, SoundService::class.java).setAction(SoundService.ACTION_STOP),
+                    PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+                )
+            )
+        )
+        .build()
+
+    /** Another VPN took the place of the local filter; tapping opens the protection screen. */
+    fun vpnReplaced(context: Context) {
+        post(
+            context, ID_VPN, builder(context, CHANNEL_REMINDER)
+                .setContentTitle(context.getString(R.string.notification_title))
+                .setContentText(context.getString(R.string.vpn_replaced_notice))
+                .setAutoCancel(true)
+                .setContentIntent(screen(context, Screens.PROTECTION, 14))
                 .build()
         )
     }
@@ -176,6 +224,8 @@ object Notices {
     private const val LOG_NOTICE_MILLIS = 6_000L
     private const val CHANNEL_LOG = "log"
     private const val CHANNEL_PRAYER = "prayer"
+    private const val CHANNEL_QUIET = "prayer_quiet"
+    private const val CHANNEL_SOUND = "sound"
     private const val CHANNEL_REMINDER = "reminders"
     private const val CHANNEL_PROTECTION = "protection"
 }

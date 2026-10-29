@@ -11,6 +11,9 @@ import com.naqaa.app.NaqaaApplication
 import com.naqaa.app.R
 import com.naqaa.app.data.Preferences
 import com.naqaa.app.guard.GuardGrace
+import com.naqaa.app.guard.UsagePass
+import com.naqaa.app.guard.VpnApps
+import com.naqaa.app.vpn.VpnState
 import com.naqaa.app.guard.GuardSignals
 import com.naqaa.app.guard.LockWindow
 import com.naqaa.app.guard.NightMode
@@ -42,6 +45,11 @@ class GuardAccessibilityService : AccessibilityService() {
     private var lastActionPackage: String? = null
 
     private var unsubscribe: (() -> Unit)? = null
+    private var unsubscribeCleanup: (() -> Unit)? = null
+    private var unsubscribeVpn: (() -> Unit)? = null
+    private val cleanup by lazy { CleanupEngine(this) }
+    private var lastWatchRefresh = 0L
+    private var lastVpnResume = 0L
 
     override fun onServiceConnected() {
         super.onServiceConnected()
@@ -54,12 +62,26 @@ class GuardAccessibilityService : AccessibilityService() {
             unsubscribe = store.addListener { updated ->
                 Handler(Looper.getMainLooper()).post { runCatching { refreshWatched(updated) } }
             }
+            // The account cleanup is controlled from a screen of the application; the engine
+            // lives here because only this service can read and press another application.
+            unsubscribeCleanup = CleanupState.addControlListener {
+                Handler(Looper.getMainLooper()).post { runCatching { cleanup.sync() } }
+            }
+            // Another VPN replacing the local filter: bring the consent screen back.
+            unsubscribeVpn = VpnState.addListener {
+                Handler(Looper.getMainLooper()).post { runCatching { onVpnChanged() } }
+            }
         }.onFailure { CrashLog.note(this, "accessibility connect", it) }
     }
 
     override fun onDestroy() {
         unsubscribe?.invoke()
         unsubscribe = null
+        unsubscribeCleanup?.invoke()
+        unsubscribeCleanup = null
+        unsubscribeVpn?.invoke()
+        unsubscribeVpn = null
+        runCatching { cleanup.shutdown() }
         super.onDestroy()
     }
 
@@ -77,15 +99,28 @@ class GuardAccessibilityService : AccessibilityService() {
         loadRules()
         val preferences = preferences()
         if (!preferences.onboarded) return
-        if (watched.isEmpty()) refreshWatched(preferences)
-        if (!canAct(packageName)) return
+        val nowMillis = System.currentTimeMillis()
+        // Newly installed VPN clients are picked up without waiting for a settings change.
+        if (watched.isEmpty() || nowMillis - lastWatchRefresh > WATCH_REFRESH_MILLIS) {
+            lastWatchRefresh = nowMillis
+            refreshWatched(preferences)
+        }
+        if (!canAct(preferences, packageName)) return
+
+        // Another VPN service would end the local filter, so its application is covered by
+        // the same lock screen as a scheduled lock, with its own message.
+        val passActive = UsagePass.appAllowed(packageName)
+        if (!passActive && isOtherVpn(preferences, packageName)) {
+            openLock(R.string.block_vpn_message, packageName)
+            return
+        }
 
         val minute = TimeX.minuteOfDay(Instant.now(), ZoneId.systemDefault())
-        if (lockedNow(preferences, packageName, minute)) {
+        if (!passActive && lockedNow(preferences, packageName, minute)) {
             openLock(R.string.lock_message_schedule, packageName)
             return
         }
-        if (nightNow(preferences, packageName)) {
+        if (!passActive && nightNow(preferences, packageName)) {
             openLock(R.string.lock_message_night, packageName)
             return
         }
@@ -96,7 +131,8 @@ class GuardAccessibilityService : AccessibilityService() {
 
         if (preferences.blockShorts) {
             val rule = rules.appRule(packageName)
-            if (rule != null) {
+            // While the user's own time pass is running the short video rules stand aside.
+            if (rule != null && !UsagePass.shortsAllowed()) {
                 if (rule.wholeApp) {
                     if (preferences.blockTikTok) closeEverything(R.string.block_short_message, packageName, GuardSignals.Reason.REELS)
                 } else if (ScreenRules.showsShortVideo(rule, facts)) {
@@ -133,6 +169,8 @@ class GuardAccessibilityService : AccessibilityService() {
             rules.browsers.forEach { add(it.packageName) }
             addAll(rules.riskyPackages)
             preferences.lockedApps.forEach { add(it.packageName) }
+            if (preferences.blockOtherVpn) addAll(VpnApps.all(this@GuardAccessibilityService))
+            add(cleanup.packageName)
         }
         if (wanted.isEmpty() || wanted == watched) return
         watched = wanted
@@ -144,8 +182,21 @@ class GuardAccessibilityService : AccessibilityService() {
         }
     }
 
-    private fun canAct(packageName: String): Boolean =
-        rules.watches(packageName) || preferences().lockedApps.any { it.packageName == packageName }
+    private fun canAct(preferences: Preferences, packageName: String): Boolean =
+        rules.watches(packageName) || preferences.lockedApps.any { it.packageName == packageName } ||
+            isOtherVpn(preferences, packageName)
+
+    private fun isOtherVpn(preferences: Preferences, packageName: String): Boolean =
+        preferences.blockOtherVpn && packageName in VpnApps.all(this)
+
+    /** After another VPN replaced the filter, ask for consent again (at most once a minute). */
+    private fun onVpnChanged() {
+        if (!VpnState.replacedByOther || !preferences().blockOtherVpn) return
+        val now = System.currentTimeMillis()
+        if (now - lastVpnResume < VPN_RESUME_MILLIS) return
+        lastVpnResume = now
+        startActivity(Overlays.vpnResume(this))
+    }
 
     /** True while the current minute falls inside a window the user scheduled for the app. */
     private fun lockedNow(preferences: Preferences, packageName: String, minute: Int): Boolean =
@@ -166,11 +217,16 @@ class GuardAccessibilityService : AccessibilityService() {
         longitude = preferences().longitude,
         method = preferences().prayerMethod,
         hanafiAsr = preferences().hanafiAsr,
-        ramadan = TimeX.isRamadan(date)
+        ramadan = TimeX.isRamadan(date),
+        offsets = preferences().prayerOffsetMap
     )
 
     private fun closeSurface(messageId: Int, packageName: String, reason: GuardSignals.Reason) {
         if (!throttlePassed(packageName)) return
+        if (UsagePass.consumeShortsExpired()) {
+            endedScreen(packageName)
+            return
+        }
         performGlobalAction(GLOBAL_ACTION_BACK)
         message(messageId)
         GuardSignals.raise(reason)
@@ -178,6 +234,10 @@ class GuardAccessibilityService : AccessibilityService() {
 
     private fun closeEverything(messageId: Int, packageName: String, reason: GuardSignals.Reason) {
         if (!throttlePassed(packageName)) return
+        if (UsagePass.consumeShortsExpired()) {
+            endedScreen(packageName)
+            return
+        }
         performGlobalAction(GLOBAL_ACTION_HOME)
         message(messageId)
         GuardSignals.raise(reason)
@@ -185,8 +245,20 @@ class GuardAccessibilityService : AccessibilityService() {
 
     private fun openLock(messageId: Int, packageName: String) {
         if (!throttlePassed(packageName)) return
+        // A pass that just ran out is announced as such instead of as a plain lock.
+        if (UsagePass.consumeAppExpired(packageName)) {
+            endedScreen(packageName)
+            return
+        }
         performGlobalAction(GLOBAL_ACTION_HOME)
         startActivity(Overlays.lock(this, messageId, packageName))
+        GuardSignals.raise(GuardSignals.Reason.LOCKED_APP)
+    }
+
+    /** The screen that says the time the user allowed himself is over. */
+    private fun endedScreen(packageName: String) {
+        performGlobalAction(GLOBAL_ACTION_HOME)
+        startActivity(Overlays.lock(this, R.string.usage_ended_message, packageName, ended = true))
         GuardSignals.raise(GuardSignals.Reason.LOCKED_APP)
     }
 
@@ -217,6 +289,8 @@ class GuardAccessibilityService : AccessibilityService() {
         const val RULES_ASSET = "accessibility-rules.json"
         const val THROTTLE_MILLIS = 1_200L
         const val NOTIFICATION_TIMEOUT = 200L
+        const val WATCH_REFRESH_MILLIS = 5 * 60_000L
+        const val VPN_RESUME_MILLIS = 60_000L
 
         val WATCHED_EVENTS = setOf(
             AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED,

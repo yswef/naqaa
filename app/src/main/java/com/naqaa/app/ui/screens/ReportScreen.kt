@@ -50,6 +50,10 @@ fun ReportScreen(viewModel: AppViewModel, state: UiState) {
             subtitle = TimeX.clockOf(report.week.from, zone, display) + " - " + TimeX.clockOf(report.week.to, zone, display)
         )
 
+        com.naqaa.app.data.Session.reportName()?.let { name ->
+            ValueLine(stringResource(R.string.report_user, name))
+        }
+
         SectionCard(title = stringResource(R.string.report_risk)) {
             StatLine(stringResource(R.string.report_risk), ReportText.risk(context, report.risk))
             StatLine(stringResource(R.string.report_score), report.score.toString())

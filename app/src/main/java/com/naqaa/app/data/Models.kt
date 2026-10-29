@@ -1,6 +1,7 @@
 package com.naqaa.app.data
 
 import com.naqaa.app.prayer.CalculationMethod
+import com.naqaa.app.prayer.PrayerName
 import java.time.Instant
 import java.time.LocalDate
 import java.util.UUID
@@ -111,8 +112,25 @@ data class Preferences(
     val pinFailures: Int = 0,
     val pinLockedUntil: Instant? = null,
     val planStart: LocalDate? = null,
-    val lastDelayCompletedAt: Instant? = null
+    val lastDelayCompletedAt: Instant? = null,
+    /** Minutes added to (or taken from) each computed prayer time, keyed by [PrayerName.name]. */
+    val prayerOffsets: Map<String, Int> = emptyMap(),
+    /** Finished plan tasks as "day:task" keys, where task is b (behaviour), s (worship) or c (challenge). */
+    val planTasks: Set<String> = emptySet(),
+    /** Closes the apps of other VPN services while the filter is meant to be on. */
+    val blockOtherVpn: Boolean = true,
+    /** Plays the bundled call to prayer at prayer time when the audio file exists. */
+    val adhanSound: Boolean = true,
+    /** Plays a bundled hadith recording with the daily remembrance reminder. */
+    val hadithSound: Boolean = true
 ) {
     val hasPin: Boolean get() = pinHash.isNotEmpty()
+
+    /** The offsets in a form the calculator takes; unknown keys are ignored. */
+    val prayerOffsetMap: Map<PrayerName, Int>
+        get() = prayerOffsets.mapNotNull { (key, minutes) ->
+            PrayerName.entries.firstOrNull { it.name == key }?.let { it to minutes }
+        }.toMap()
+
     val hasTrustedContact: Boolean get() = trustedPhone.isNotBlank()
 }

@@ -206,6 +206,12 @@ fun SettingsScreen(viewModel: AppViewModel, state: UiState) {
             }
         }
 
+        AccountCard()
+        BackupCard(viewModel)
+        SoundCard(viewModel, state)
+        SigningCard()
+        DeveloperCard()
+
         SectionCard(title = stringResource(R.string.settings_privacy)) {
             Text(text = stringResource(R.string.settings_privacy_body), style = MaterialTheme.typography.bodySmall)
         }

@@ -221,7 +221,7 @@ private fun HabitsCard(viewModel: AppViewModel, state: UiState, onNavigate: (Des
             status = stringResource(R.string.habit_count, prayers, PRAYERS_PER_DAY),
             done = prayers >= PRAYERS_PER_DAY,
             action = stringResource(R.string.habit_mark),
-            onAction = { viewModel.log(EventKind.PRAYER) }
+            onAction = { onNavigate(Destination.PRAYER) }
         )
         HabitRow(
             title = stringResource(R.string.habit_adhkar),

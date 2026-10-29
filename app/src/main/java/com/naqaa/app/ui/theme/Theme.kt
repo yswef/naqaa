@@ -1,14 +1,26 @@
 package com.naqaa.app.ui.theme
 
-import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.material3.LocalContentColor
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.getValue
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Shapes
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Typography
 import androidx.compose.material3.darkColorScheme
-import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -16,49 +28,41 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
-/** Calm forest-green and sand palette with deliberately high contrast for interactive text. */
-private val LightScheme = lightColorScheme(
-    primary = Color(0xFF1B5C42),
-    onPrimary = Color(0xFFFFFFFF),
-    primaryContainer = Color(0xFFD4EADC),
-    onPrimaryContainer = Color(0xFF102A1B),
-    secondary = Color(0xFF53665A),
-    onSecondary = Color(0xFFFFFFFF),
-    secondaryContainer = Color(0xFFDCE7DD),
-    onSecondaryContainer = Color(0xFF17211A),
-    tertiary = Color(0xFF705339),
-    onTertiary = Color(0xFFFFFFFF),
-    background = Color(0xFFF7F6F1),
-    onBackground = Color(0xFF1B1C1A),
-    surface = Color(0xFFFDFCF8),
-    onSurface = Color(0xFF1B1C1A),
-    surfaceVariant = Color(0xFFE3E7E0),
-    onSurfaceVariant = Color(0xFF3B463E),
-    outline = Color(0xFF626A60),
-    error = Color(0xFFA52320),
-    onError = Color(0xFFFFFFFF)
-)
+/**
+ * A neon palette on a deep space background: cyan as the main accent, violet and magenta as
+ * companions. Contrast stays high for text that can be pressed. The scheme is dark only; the
+ * look is the point of the theme, so the system setting does not switch it.
+ */
+object Neon {
+    val Space = Color(0xFF070A1A)
+    val Panel = Color(0xFF111A3F)
+    val Cyan = Color(0xFF00E5FF)
+    val Violet = Color(0xFF9D6BFF)
+    val Magenta = Color(0xFFFF2E93)
+    val Lime = Color(0xFF39FF88)
+    val Amber = Color(0xFFFFC857)
+}
 
-private val DarkScheme = darkColorScheme(
-    primary = Color(0xFFA8E5C0),
-    onPrimary = Color(0xFF073824),
-    primaryContainer = Color(0xFF214E36),
-    onPrimaryContainer = Color(0xFFD4EADC),
-    secondary = Color(0xFFBDCEC1),
-    onSecondary = Color(0xFF223127),
-    secondaryContainer = Color(0xFF3A463C),
-    onSecondaryContainer = Color(0xFFDCE7DD),
-    tertiary = Color(0xFFE6C19C),
-    onTertiary = Color(0xFF442C11),
-    background = Color(0xFF121412),
-    onBackground = Color(0xFFE3E3DD),
-    surface = Color(0xFF1A1C1A),
-    onSurface = Color(0xFFE3E3DD),
-    surfaceVariant = Color(0xFF43483F),
-    onSurfaceVariant = Color(0xFFD0D5CA),
-    outline = Color(0xFF9AA195),
-    error = Color(0xFFF2B8B5),
-    onError = Color(0xFF601410)
+private val NeonScheme = darkColorScheme(
+    primary = Neon.Cyan,
+    onPrimary = Color(0xFF001A20),
+    primaryContainer = Color(0xFF0B3A57),
+    onPrimaryContainer = Color(0xFFBDF4FF),
+    secondary = Neon.Violet,
+    onSecondary = Color(0xFF12002E),
+    secondaryContainer = Color(0xFF2C1B63),
+    onSecondaryContainer = Color(0xFFE6DAFF),
+    tertiary = Neon.Magenta,
+    onTertiary = Color(0xFF2E0018),
+    background = Neon.Space,
+    onBackground = Color(0xFFE8ECFF),
+    surface = Color(0xFF0C1230),
+    onSurface = Color(0xFFE8ECFF),
+    surfaceVariant = Neon.Panel,
+    onSurfaceVariant = Color(0xFFBCC6F0),
+    outline = Color(0xFF6B7BC4),
+    error = Color(0xFFFF5470),
+    onError = Color(0xFF3A0010)
 )
 
 private val BaseTypography = Typography()
@@ -85,8 +89,8 @@ fun NaqaaOutlinedTextFieldColors() = OutlinedTextFieldDefaults.colors(
     unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
     disabledTextColor = MaterialTheme.colorScheme.onSurfaceVariant,
     errorTextColor = MaterialTheme.colorScheme.error,
-    focusedContainerColor = MaterialTheme.colorScheme.surface,
-    unfocusedContainerColor = MaterialTheme.colorScheme.surface,
+    focusedContainerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.6f),
+    unfocusedContainerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.6f),
     disabledContainerColor = MaterialTheme.colorScheme.surfaceVariant,
     errorContainerColor = MaterialTheme.colorScheme.surface,
     cursorColor = MaterialTheme.colorScheme.primary,
@@ -105,15 +109,60 @@ fun NaqaaOutlinedTextFieldColors() = OutlinedTextFieldDefaults.colors(
     errorPlaceholderColor = MaterialTheme.colorScheme.error
 )
 
+/** Slow drifting glows behind every screen; two floats animate, so the cost is small. */
 @Composable
-fun NaqaaTheme(dark: Boolean = isSystemInDarkTheme(), content: @Composable () -> Unit) {
+fun NeonBackdrop(modifier: Modifier = Modifier) {
+    val transition = rememberInfiniteTransition(label = "backdrop")
+    val drift by transition.animateFloat(
+        initialValue = 0f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(tween(14_000, easing = LinearEasing), RepeatMode.Reverse),
+        label = "drift"
+    )
+    Box(
+        modifier = modifier
+            .fillMaxSize()
+            .background(Brush.verticalGradient(listOf(Color(0xFF060818), Neon.Space, Color(0xFF0A0F2B))))
+            .drawBehind {
+                drawCircle(
+                    brush = Brush.radialGradient(
+                        listOf(Neon.Cyan.copy(alpha = 0.18f), Color.Transparent),
+                        center = Offset(size.width * (0.15f + 0.25f * drift), size.height * 0.12f),
+                        radius = size.minDimension * 0.9f
+                    )
+                )
+                drawCircle(
+                    brush = Brush.radialGradient(
+                        listOf(Neon.Violet.copy(alpha = 0.20f), Color.Transparent),
+                        center = Offset(size.width * (0.9f - 0.3f * drift), size.height * 0.55f),
+                        radius = size.minDimension * 1.0f
+                    )
+                )
+                drawCircle(
+                    brush = Brush.radialGradient(
+                        listOf(Neon.Magenta.copy(alpha = 0.12f), Color.Transparent),
+                        center = Offset(size.width * (0.2f + 0.2f * drift), size.height * 0.95f),
+                        radius = size.minDimension * 0.8f
+                    )
+                )
+            }
+    )
+}
+
+@Composable
+fun NaqaaTheme(dark: Boolean = true, content: @Composable () -> Unit) {
     MaterialTheme(
-        colorScheme = if (dark) DarkScheme else LightScheme,
+        colorScheme = NeonScheme,
         typography = NaqaaTypography,
         shapes = NaqaaShapes
     ) {
-        // Without a Surface the default text colour stays black, which disappears on the dark
-        // background. This gives every screen the right content colour in both themes.
-        Surface(modifier = Modifier, color = MaterialTheme.colorScheme.background, content = content)
+        // The backdrop is drawn once under every screen; screens above it keep transparent
+        // backgrounds. LocalContentColor gives text the right colour on that backdrop.
+        Box(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
+            NeonBackdrop()
+            CompositionLocalProvider(LocalContentColor provides MaterialTheme.colorScheme.onBackground) {
+                content()
+            }
+        }
     }
 }

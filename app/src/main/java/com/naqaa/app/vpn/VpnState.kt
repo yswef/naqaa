@@ -24,12 +24,38 @@ object VpnState {
 
     val running: Boolean get() = runningFlag.get()
 
+    private val stoppedByUser = AtomicBoolean(false)
+    private val revokedAtMillis = AtomicLong(0L)
+
+    /** When the tunnel was taken away by the system (another VPN started), or 0. */
+    val revokedAt: Long get() = revokedAtMillis.get()
+
+    /** True when the filter was running (or meant to run) and something else replaced it. */
+    val replacedByOther: Boolean get() = revokedAtMillis.get() != 0L && !stoppedByUser.get()
+
+    fun markRevoked() {
+        revokedAtMillis.set(System.currentTimeMillis())
+        notifyChanged()
+    }
+
+    /** The user ended the filter through the waiting screen, so a later revoke is not a surprise. */
+    fun markStoppedByUser() {
+        stoppedByUser.set(true)
+        revokedAtMillis.set(0L)
+    }
+
+    fun clearRevoked() {
+        revokedAtMillis.set(0L)
+    }
+
     fun addListener(listener: () -> Unit): () -> Unit {
         listeners.add(listener)
         return { listeners.remove(listener) }
     }
 
     fun markStarted() {
+        stoppedByUser.set(false)
+        revokedAtMillis.set(0L)
         startedAt.set(System.currentTimeMillis())
         runningFlag.set(true)
         notifyChanged()

@@ -67,6 +67,10 @@ object ReportPdf {
         line(title, localized.getString(R.string.report_title), gap = 14f)
         line(muted, localized.getString(R.string.report_range, TimeX.clockOf(report.week.from, zone, display), TimeX.clockOf(report.week.to, zone, display)), gap = 16f)
 
+        com.naqaa.app.data.Session.reportName()?.let {
+            line(muted, localized.getString(R.string.report_user, it), gap = 16f)
+        }
+
         line(heading, localized.getString(R.string.report_summary), gap = 10f)
         line(body, localized.getString(R.string.report_streak, number(report.streak.current, digits)))
         line(body, localized.getString(R.string.report_best_streak, number(report.streak.best, digits)))

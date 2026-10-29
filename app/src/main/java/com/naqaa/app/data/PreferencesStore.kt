@@ -80,6 +80,12 @@ class PreferencesStore(context: Context, private val vault: Vault) {
         notifyChanged()
     }
 
+    /** The whole document as plain JSON, for the password protected backup file. */
+    fun exportJson(): String = encode(load())
+
+    /** Reads a document written by [exportJson]; missing fields take their defaults. */
+    fun parse(text: String): Preferences = decode(text)
+
     private fun notifyChanged() {
         val value = cached
         listeners.forEach { listener -> runCatching { listener(value) } }
@@ -97,6 +103,10 @@ class PreferencesStore(context: Context, private val vault: Vault) {
         }
         val allowlist = JSONArray()
         value.nightAllowlist.forEach { allowlist.put(it) }
+        val offsets = JSONObject()
+        value.prayerOffsets.forEach { (name, minutes) -> offsets.put(name, minutes) }
+        val tasks = JSONArray()
+        value.planTasks.forEach { tasks.put(it) }
         return JSONObject()
             .put("startedAt", value.startedAt.toString())
             .put("onboarded", value.onboarded)
@@ -126,6 +136,11 @@ class PreferencesStore(context: Context, private val vault: Vault) {
             .put("pinLockedUntil", value.pinLockedUntil?.toString())
             .put("planStart", value.planStart?.toString())
             .put("lastDelayCompletedAt", value.lastDelayCompletedAt?.toString())
+            .put("prayerOffsets", offsets)
+            .put("planTasks", tasks)
+            .put("blockOtherVpn", value.blockOtherVpn)
+            .put("adhanSound", value.adhanSound)
+            .put("hadithSound", value.hadithSound)
             .toString()
     }
 
@@ -139,6 +154,12 @@ class PreferencesStore(context: Context, private val vault: Vault) {
             }
         }.orEmpty()
         val allowlist = json.optJSONArray("nightAllowlist")?.let { array ->
+            (0 until array.length()).mapNotNull { array.optString(it).takeIf(String::isNotBlank) }.toSet()
+        }.orEmpty()
+        val offsets = json.optJSONObject("prayerOffsets")?.let { obj ->
+            obj.keys().asSequence().associateWith { obj.optInt(it) }
+        }.orEmpty()
+        val tasks = json.optJSONArray("planTasks")?.let { array ->
             (0 until array.length()).mapNotNull { array.optString(it).takeIf(String::isNotBlank) }.toSet()
         }.orEmpty()
         return Preferences(
@@ -169,7 +190,12 @@ class PreferencesStore(context: Context, private val vault: Vault) {
             pinFailures = json.optInt("pinFailures"),
             pinLockedUntil = json.optString("pinLockedUntil").takeIf(String::isNotBlank)?.let(Instant::parse),
             planStart = json.optString("planStart").takeIf(String::isNotBlank)?.let(LocalDate::parse),
-            lastDelayCompletedAt = json.optString("lastDelayCompletedAt").takeIf(String::isNotBlank)?.let(Instant::parse)
+            lastDelayCompletedAt = json.optString("lastDelayCompletedAt").takeIf(String::isNotBlank)?.let(Instant::parse),
+            prayerOffsets = offsets,
+            planTasks = tasks,
+            blockOtherVpn = json.optBoolean("blockOtherVpn", true),
+            adhanSound = json.optBoolean("adhanSound", true),
+            hadithSound = json.optBoolean("hadithSound", true)
         )
     }
 

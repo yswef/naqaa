@@ -32,6 +32,24 @@ class JournalStore(context: Context, private val vault: Vault = Vault()) :
         check(changed == 1) { "event ${event.id} is not stored" }
     }
 
+    /** Adds events from a backup; an id that is already stored is kept as it is. Returns the new rows. */
+    @Synchronized
+    fun importEvents(events: List<JournalEvent>): Int {
+        var added = 0
+        val db = writableDatabase
+        db.beginTransaction()
+        try {
+            events.forEach { event ->
+                val row = db.insertWithOnConflict(TABLE, null, values(event), SQLiteDatabase.CONFLICT_IGNORE)
+                if (row != -1L) added++
+            }
+            db.setTransactionSuccessful()
+        } finally {
+            db.endTransaction()
+        }
+        return added
+    }
+
     @Synchronized
     fun delete(id: String) {
         writableDatabase.delete(TABLE, "id = ?", arrayOf(id))

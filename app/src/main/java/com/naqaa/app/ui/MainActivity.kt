@@ -10,13 +10,17 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModelProvider
 import com.naqaa.app.NaqaaApplication
 import com.naqaa.app.data.Preferences
+import com.naqaa.app.data.Session
 import com.naqaa.app.ui.screens.AppShell
+import com.naqaa.app.ui.screens.AuthScreen
 import com.naqaa.app.ui.screens.Destination
 import com.naqaa.app.ui.screens.LockScreen
 import com.naqaa.app.ui.screens.OnboardingScreen
@@ -85,11 +89,21 @@ class MainActivity : ComponentActivity() {
     @Composable
     private fun Root(state: UiState, requested: Destination?) {
         var unlocked by rememberSaveable { mutableStateOf(!state.preferences.hasPin) }
+        // Read in the composition so that signing in redraws; the session itself is in memory.
+        var signInTick by remember { mutableIntStateOf(0) }
         if (!state.preferences.onboarded) {
             OnboardingScreen(viewModel = viewModel)
             return
         }
-        if (state.preferences.hasPin && !unlocked && !UnlockState.unlocked) {
+        if (signInTick >= 0 && !Session.signedIn) {
+            AuthScreen(
+                users = (application as NaqaaApplication).graph.users,
+                onSignedIn = { signInTick += 1 }
+            )
+            return
+        }
+        // The developer session skips the PIN as it skips the waits.
+        if (state.preferences.hasPin && !unlocked && !UnlockState.unlocked && !Session.developer) {
             LockScreen(
                 preferences = state.preferences,
                 onUnlocked = {

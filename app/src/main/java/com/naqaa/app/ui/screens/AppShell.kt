@@ -27,6 +27,8 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import com.naqaa.app.R
@@ -44,7 +46,8 @@ enum class Destination(val label: Int, val icon: ImageVector?, val inBar: Boolea
     EMERGENCY(R.string.nav_emergency, null, false),
     PROGRESS(R.string.nav_progress, null, false),
     PLAN(R.string.nav_plan, null, false),
-    REPORT(R.string.nav_report, null, false)
+    REPORT(R.string.nav_report, null, false),
+    CLEANUP(R.string.nav_cleanup, null, false)
 }
 
 /** Main tabs and secondary screens. */
@@ -66,8 +69,9 @@ fun AppShell(viewModel: AppViewModel, state: UiState, requested: Destination? = 
     }
 
     Scaffold(
+        containerColor = Color.Transparent,
         bottomBar = {
-            NavigationBar {
+            NavigationBar(containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.92f)) {
                 Destination.entries.filter { it.inBar }.forEach { entry ->
                     NavigationBarItem(
                         selected = destination == entry || (destination == Destination.ADHKAR && entry == Destination.PRAYER),
@@ -95,12 +99,13 @@ fun AppShell(viewModel: AppViewModel, state: UiState, requested: Destination? = 
                 Destination.EMERGENCY -> EmergencyScreen(viewModel, state, ::navigate)
                 Destination.JOURNAL -> JournalScreen(viewModel, state)
                 Destination.PROGRESS -> ProgressScreen(state)
-                Destination.PROTECTION -> ProtectionScreen(viewModel, state)
+                Destination.PROTECTION -> ProtectionScreen(viewModel, state, onOpenCleanup = { navigate(Destination.CLEANUP) })
                 Destination.PRAYER -> PrayerScreen(viewModel, state) { navigate(Destination.ADHKAR) }
                 Destination.ADHKAR -> AdhkarScreen(viewModel, onBack = { navigate(Destination.PRAYER) })
                 Destination.PLAN -> PlanScreen(viewModel, state)
                 Destination.REPORT -> ReportScreen(viewModel, state)
                 Destination.SETTINGS -> SettingsScreen(viewModel, state)
+                Destination.CLEANUP -> CleanupScreen(onBack = { navigate(Destination.PROTECTION) })
             }
         }
     }

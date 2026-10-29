@@ -84,6 +84,7 @@ jobs:
               -keyalg RSA -keysize 4096 -validity 10000 -dname "CN=yswef, O=Naqaa" \
               -storepass "$store_password" -keypass "$key_password"
             echo "ephemeral=true" >> "$GITHUB_OUTPUT"
+            echo "::warning title=Temporary signing key::No NAQAA_STORE_BASE64 secret is set, so this build is signed with a throw-away key. Android will refuse to update an installed copy with it (conflicts with an existing package). Run tools/make_keystore.sh once and store the four secrets."
           else
             printf '%s' "$KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/release.jks"
             echo "ephemeral=false" >> "$GITHUB_OUTPUT"

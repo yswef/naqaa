@@ -212,6 +212,92 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    /**
+     * Records which prayer was prayed and whether it was inside its time. One record per
+     * prayer per day: pressing again changes the status of the existing record.
+     */
+    fun logPrayer(name: PrayerName, onTime: Boolean) {
+        val key = name.name.lowercase()
+        val note = if (onTime) PRAYER_ONTIME else PRAYER_LATE
+        val zone = ZoneId.systemDefault()
+        val today = LocalDate.now(zone)
+        viewModelScope.launch {
+            runCatching {
+                withContext(Dispatchers.Default) {
+                    val existing = graph.snapshot().events.firstOrNull {
+                        it.kind == EventKind.PRAYER && it.trigger == key && LocalDate.ofInstant(it.at, zone) == today
+                    }
+                    if (existing != null) {
+                        graph.journal.update(existing.copy(note = note))
+                    } else {
+                        graph.record(EventKind.PRAYER, trigger = key, note = note)
+                    }
+                    mutable.value = build(mutable.value.logCount + 1, mutable.value.encouragement)
+                }
+            }.onFailure { record(it) }
+        }
+    }
+
+    /**
+     * Ticks or unticks one task of a plan day. When the three tasks of today are done the
+     * day is also written to the journal, which is what the streaks and reports count.
+     */
+    fun togglePlanTask(day: Int, task: String) {
+        val key = "$day:$task"
+        val updated = graph.update { it.copy(planTasks = if (key in it.planTasks) it.planTasks - key else it.planTasks + key) }
+        val complete = PLAN_TASKS.all { "$day:$it" in updated.planTasks }
+        val zone = ZoneId.systemDefault()
+        val today = LocalDate.now(zone)
+        val alreadyLogged = mutable.value.events.any {
+            it.kind == EventKind.PLAN && LocalDate.ofInstant(it.at, zone) == today
+        }
+        if (complete && day == mutable.value.planDay && !alreadyLogged) {
+            log(EventKind.PLAN)
+        } else {
+            refresh()
+        }
+    }
+
+    /** Writes the encrypted backup to [uri]; [onDone] gets true on success. */
+    fun exportBackup(uri: android.net.Uri, password: CharArray, onDone: (Boolean) -> Unit) {
+        viewModelScope.launch {
+            val ok = runCatching {
+                withContext(Dispatchers.IO) {
+                    val version = runCatching {
+                        app.packageManager.getPackageInfo(app.packageName, 0).versionName
+                    }.getOrNull().orEmpty()
+                    val bytes = com.naqaa.app.data.Backup.export(graph, password, version)
+                    app.contentResolver.openOutputStream(uri)?.use { it.write(bytes) } ?: error("no stream")
+                }
+            }.onFailure { record(it) }.isSuccess
+            onDone(ok)
+        }
+    }
+
+    /** Reads a backup from [uri] and merges it; the schedules are rebuilt from the new settings. */
+    fun importBackup(uri: android.net.Uri, password: CharArray, onDone: (com.naqaa.app.data.Backup.Outcome) -> Unit) {
+        viewModelScope.launch {
+            val outcome = runCatching {
+                withContext(Dispatchers.IO) {
+                    val bytes = app.contentResolver.openInputStream(uri)?.use { it.readBytes() } ?: error("no stream")
+                    com.naqaa.app.data.Backup.import(graph, bytes, password)
+                }
+            }.getOrElse {
+                record(it)
+                com.naqaa.app.data.Backup.Outcome.Failed(it.javaClass.simpleName)
+            }
+            if (outcome is com.naqaa.app.data.Backup.Outcome.Imported) {
+                withContext(Dispatchers.Default) {
+                    val current = graph.current()
+                    PrayerAlarms.schedule(app, current)
+                    Reminders.schedule(app, current)
+                }
+                refresh()
+            }
+            onDone(outcome)
+        }
+    }
+
     private fun confirmLog(kind: EventKind) {
         val label = logLabels.firstOrNull { it.first == kind }?.second ?: return
         val localized = LocaleX.localized(app, graph.current().language)
@@ -265,7 +351,8 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
             longitude = preferences.longitude,
             method = preferences.prayerMethod,
             hanafiAsr = preferences.hanafiAsr,
-            ramadan = TimeX.isRamadan(today)
+            ramadan = TimeX.isRamadan(today),
+            offsets = preferences.prayerOffsetMap
         )
         val nextPrayer = PrayerCalculator.next(times, now) ?: PrayerCalculator.next(
             PrayerCalculator.calculate(
@@ -274,7 +361,8 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
                 longitude = preferences.longitude,
                 method = preferences.prayerMethod,
                 hanafiAsr = preferences.hanafiAsr,
-                ramadan = TimeX.isRamadan(today.plusDays(1))
+                ramadan = TimeX.isRamadan(today.plusDays(1)),
+                offsets = preferences.prayerOffsetMap
             ),
             now
         )
@@ -299,6 +387,9 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     companion object {
         private const val VPN_REFRESH_MILLIS = 5_000L
         private const val DOUBLE_TAP_MILLIS = 60_000L
+        const val PRAYER_ONTIME = "ontime"
+        const val PRAYER_LATE = "late"
+        val PLAN_TASKS = listOf("b", "s", "c")
 
         val logLabels = listOf(
             EventKind.RESISTED to R.string.log_resisted,

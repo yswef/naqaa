@@ -9,6 +9,7 @@ import android.os.Build
 import com.naqaa.app.R
 import com.naqaa.app.data.Preferences
 import com.naqaa.app.notify.Notices
+import com.naqaa.app.sound.Sounds
 import com.naqaa.app.util.LocaleX
 import com.naqaa.app.util.TimeX
 import java.time.Instant
@@ -44,7 +45,8 @@ object PrayerAlarms {
                 longitude = preferences.longitude,
                 method = preferences.prayerMethod,
                 hanafiAsr = preferences.hanafiAsr,
-                ramadan = TimeX.isRamadan(date)
+                ramadan = TimeX.isRamadan(date),
+                offsets = preferences.prayerOffsetMap
             )
             times.ordered().forEach { (name, instant) ->
                 if (!name.isPrayer || !instant.isAfter(now)) return@forEach
@@ -109,7 +111,12 @@ class PrayerAlarmReceiver : BroadcastReceiver() {
                 val preferences = application.graph.current()
                 if (preferences.prayerReminders) {
                     val localized = LocaleX.localized(context, preferences.language)
-                    Notices.prayerReminder(localized, localized.getString(label(name)))
+                    // The call to prayer replaces the chime when a recording is bundled and the
+                    // user left it on; if the system refuses to start playback the notification
+                    // keeps its own sound, so the reminder is never silent by accident.
+                    val file = if (preferences.adhanSound && name.isPrayer) Sounds.adhan(context, name) else null
+                    val played = file != null && Sounds.play(context, file, loud = true)
+                    Notices.prayerReminder(localized, localized.getString(label(name)), quiet = played)
                     PrayerAlarms.schedule(localized, preferences)
                 }
             } finally {

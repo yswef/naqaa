@@ -6,6 +6,7 @@ import com.naqaa.app.data.JournalEvent
 import com.naqaa.app.data.JournalStore
 import com.naqaa.app.data.Preferences
 import com.naqaa.app.data.PreferencesStore
+import com.naqaa.app.data.UserStore
 import com.naqaa.app.data.Vault
 import com.naqaa.app.widget.ProgressWidget
 
@@ -20,6 +21,7 @@ class AppGraph(context: Context) {
 
     val journal = JournalStore(appContext, vault)
     val preferences = PreferencesStore(appContext, vault)
+    val users = UserStore(appContext, vault)
 
     fun snapshot(): JournalStore.Snapshot = journal.snapshot()
 
@@ -46,6 +48,7 @@ class AppGraph(context: Context) {
 
     fun wipe() {
         preferences.wipe()
+        users.wipe()
         journal.erase()
         ProgressWidget.refresh(appContext)
     }

@@ -57,7 +57,8 @@ object PrayerCalculator {
         longitude: Double,
         method: CalculationMethod,
         hanafiAsr: Boolean = false,
-        ramadan: Boolean = false
+        ramadan: Boolean = false,
+        offsets: Map<PrayerName, Int> = emptyMap()
     ): DayPrayerTimes {
         require(latitude.isFinite() && latitude in -90.0..90.0) { "latitude outside the globe" }
         require(longitude.isFinite() && longitude in -180.0..180.0) { "longitude outside the globe" }
@@ -84,14 +85,18 @@ object PrayerCalculator {
             maghrib?.plusSeconds(interval * 60L)
         } ?: method.ishaAngle?.let { afterNoon(-it) }
 
+        /** The user's own correction, in minutes, applied after the astronomical value. */
+        fun Instant?.moved(name: PrayerName): Instant? =
+            this?.plusSeconds((offsets[name] ?: 0) * 60L)
+
         return DayPrayerTimes(
             date = date,
-            fajr = beforeNoon(-method.fajrAngle),
-            sunrise = sunrise,
-            dhuhr = time(noonMinutes),
-            asr = afterNoon(asrAltitude(latitude, declination, hanafiAsr)),
-            maghrib = maghrib,
-            isha = isha
+            fajr = beforeNoon(-method.fajrAngle).moved(PrayerName.FAJR),
+            sunrise = sunrise.moved(PrayerName.SUNRISE),
+            dhuhr = time(noonMinutes).moved(PrayerName.DHUHR)!!,
+            asr = afterNoon(asrAltitude(latitude, declination, hanafiAsr)).moved(PrayerName.ASR),
+            maghrib = maghrib.moved(PrayerName.MAGHRIB),
+            isha = isha.moved(PrayerName.ISHA)
         )
     }
 

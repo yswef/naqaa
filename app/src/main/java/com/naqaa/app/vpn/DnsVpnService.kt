@@ -287,7 +287,15 @@ class DnsVpnService : VpnService() {
         running.set(false)
         closeTunnel()
         VpnState.markStopped()
+        // Android lets one VPN run at a time: this is also what happens when another VPN
+        // application connects. The accessibility service reads the flag and brings up the
+        // consent screen again; the notice tells the user what happened.
+        VpnState.markRevoked()
         runCatching { (application as NaqaaApplication).graph.record(EventKind.GUARD_OFF, note = NOTE_REVOKED) }
+        runCatching {
+            val language = (application as NaqaaApplication).graph.current().language
+            com.naqaa.app.notify.Notices.vpnReplaced(com.naqaa.app.util.LocaleX.localized(this, language))
+        }
         stopSelf()
         super.onRevoke()
     }

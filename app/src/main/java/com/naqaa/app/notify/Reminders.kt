@@ -9,6 +9,7 @@ import android.os.Build
 import com.naqaa.app.NaqaaApplication
 import com.naqaa.app.content.Content
 import com.naqaa.app.data.Preferences
+import com.naqaa.app.sound.Sounds
 import com.naqaa.app.util.LocaleX
 import java.time.Instant
 import java.time.LocalDate
@@ -103,7 +104,10 @@ class ReminderReceiver : BroadcastReceiver() {
                 if (!preferences.adhkarReminders) return@execute
                 Content.load(context)
                 val localized = LocaleX.localized(context, preferences.language)
-                Notices.adhkarReminder(localized, morning)
+                // A hadith recording, when one is bundled and enabled, plays with the reminder.
+                val file = if (preferences.hadithSound) Sounds.hadithOfDay(context, LocalDate.now()) else null
+                val played = file != null && Sounds.play(context, file, loud = false)
+                Notices.adhkarReminder(localized, morning, quiet = played)
                 val reminder = Content.motivation(
                     context = if (morning) Content.CONTEXT_DAWN else Content.CONTEXT_NIGHT,
                     random = Random.Default

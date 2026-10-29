@@ -16,7 +16,10 @@ import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
@@ -28,12 +31,15 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.naqaa.app.NaqaaApplication
 import com.naqaa.app.R
 import com.naqaa.app.content.Content
-import com.naqaa.app.guard.GuardGrace
+import com.naqaa.app.data.Session
+import com.naqaa.app.guard.UsagePass
+import com.naqaa.app.ui.screens.ChipFlow
 import com.naqaa.app.ui.screens.PinPrompt
 import com.naqaa.app.ui.theme.NaqaaTheme
 import com.naqaa.app.util.LocaleX
@@ -56,10 +62,11 @@ class AppLockActivity : ComponentActivity() {
         window.setFlags(WindowManager.LayoutParams.FLAG_SECURE, WindowManager.LayoutParams.FLAG_SECURE)
         setContent {
             NaqaaTheme {
-                Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
+                Surface(modifier = Modifier.fillMaxSize(), color = Color.Transparent) {
                     Screen(
                         messageRes = intent.getIntExtra(EXTRA_MESSAGE, R.string.lock_message_schedule),
                         packageName = intent.getStringExtra(EXTRA_PACKAGE),
+                        ended = intent.getBooleanExtra(Overlays.EXTRA_ENDED, false),
                         onLeave = { finish() },
                         onContinue = { finish() }
                     )
@@ -69,8 +76,9 @@ class AppLockActivity : ComponentActivity() {
     }
 
     @Composable
-    private fun Screen(messageRes: Int, packageName: String?, onLeave: () -> Unit, onContinue: () -> Unit) {
+    private fun Screen(messageRes: Int, packageName: String?, ended: Boolean, onLeave: () -> Unit, onContinue: () -> Unit) {
         var askingPin by remember { mutableStateOf(false) }
+        var choosingTime by remember { mutableStateOf(false) }
         val preferences = remember { (application as NaqaaApplication).graph.current() }
         val card = remember { Content.protectionCard() }
         val label = remember(packageName) {
@@ -93,7 +101,11 @@ class AppLockActivity : ComponentActivity() {
             Text(text = stringResource(R.string.app_name), style = MaterialTheme.typography.labelLarge)
             Spacer(Modifier.height(12.dp))
             Text(
-                text = label?.let { stringResource(R.string.lock_title_app, it) } ?: stringResource(R.string.lock_title_generic),
+                text = when {
+                    ended -> stringResource(R.string.usage_ended_title)
+                    label != null -> stringResource(R.string.lock_title_app, label)
+                    else -> stringResource(R.string.lock_title_generic)
+                },
                 style = MaterialTheme.typography.headlineSmall
             )
             Spacer(Modifier.height(8.dp))
@@ -113,8 +125,16 @@ class AppLockActivity : ComponentActivity() {
                 Text(text = stringResource(R.string.lock_back_home))
             }
             Spacer(Modifier.height(8.dp))
-            OutlinedButton(onClick = { askingPin = true }, modifier = Modifier.fillMaxWidth()) {
-                Text(text = stringResource(R.string.lock_open_once))
+            if (!ended || Session.developer) {
+                OutlinedButton(
+                    onClick = {
+                        // The developer session skips the PIN, like the waits.
+                        if (Session.developer || !preferences.hasPin) choosingTime = true else askingPin = true
+                    },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text(text = stringResource(R.string.lock_open_once))
+                }
             }
         }
         if (askingPin) {
@@ -122,8 +142,34 @@ class AppLockActivity : ComponentActivity() {
                 preferences = preferences,
                 onCancel = { askingPin = false },
                 onSuccess = {
-                    GuardGrace.suppress(minutes = GRACE_MINUTES)
-                    onContinue()
+                    askingPin = false
+                    choosingTime = true
+                }
+            )
+        }
+        if (choosingTime) {
+            // How long to open it is the user's own choice; when it runs out this screen
+            // comes back and says that the time is over.
+            AlertDialog(
+                onDismissRequest = { choosingTime = false },
+                title = { Text(text = stringResource(R.string.lock_choose_time)) },
+                text = {
+                    ChipFlow {
+                        listOf(5, 15, 30, 60).forEach { minutes ->
+                            FilterChip(
+                                selected = false,
+                                onClick = {
+                                    packageName?.let { UsagePass.allowApp(it, minutes) }
+                                    onContinue()
+                                },
+                                label = { Text(text = stringResource(R.string.minutes_short, minutes)) },
+                                modifier = Modifier.padding(top = 3.dp, bottom = 3.dp)
+                            )
+                        }
+                    }
+                },
+                confirmButton = {
+                    TextButton(onClick = { choosingTime = false }) { Text(text = stringResource(R.string.cancel)) }
                 }
             )
         }
@@ -132,7 +178,6 @@ class AppLockActivity : ComponentActivity() {
     companion object {
         const val EXTRA_MESSAGE = "message"
         const val EXTRA_PACKAGE = "package"
-        private const val GRACE_MINUTES = 15
 
         private fun languageOf(context: Context): String = runCatching {
             LocaleX.sanitize((context.applicationContext as NaqaaApplication).graph.current().language)

@@ -417,9 +417,11 @@ private fun StepApps(viewModel: AppViewModel) {
             excluded = preferences.lockedApps.map { it.packageName }.toSet(),
             own = LocalContext.current.packageName,
             onDismiss = { showPicker = false },
-            onPick = { packageName ->
+            onPick = { packages, preset ->
                 viewModel.update { current ->
-                    current.copy(lockedApps = current.lockedApps + LockRule(packageName, 0, 0))
+                    current.copy(
+                        lockedApps = current.lockedApps + packages.map { LockRule(it, preset.startMinute, preset.endMinute) }
+                    )
                 }
                 showPicker = false
             }

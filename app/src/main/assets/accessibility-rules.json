@@ -10,7 +10,11 @@
         "shorts_shelf",
         "reel_time_bar"
       ],
-      "labels": ["Shorts", "shorts", "المقاطع القصيرة"],
+      "labels": [
+        "Shorts",
+        "shorts",
+        "المقاطع القصيرة"
+      ],
       "wholeApp": false
     },
     {
@@ -22,7 +26,12 @@
         "clips_viewer_media_group",
         "reel_viewer"
       ],
-      "labels": ["Reels", "reels", "ريلز", "مقاطع"],
+      "labels": [
+        "Reels",
+        "reels",
+        "ريلز",
+        "مقاطع"
+      ],
       "wholeApp": false
     },
     {
@@ -33,93 +42,158 @@
         "reels_home_fragment",
         "reels_root_view"
       ],
-      "labels": ["Reels", "reels", "ريلز"],
+      "labels": [
+        "Reels",
+        "reels",
+        "ريلز"
+      ],
       "wholeApp": false
     },
     {
       "package": "com.facebook.lite",
-      "ids": ["reels_viewer", "reels_video_container"],
-      "labels": ["Reels", "reels", "ريلز"],
+      "ids": [
+        "reels_viewer",
+        "reels_video_container"
+      ],
+      "labels": [
+        "Reels",
+        "reels",
+        "ريلز"
+      ],
       "wholeApp": false
     },
     {
       "package": "com.snapchat.android",
-      "ids": ["spotlight_view", "spotlight_story_container"],
-      "labels": ["Spotlight", "spotlight", "سبوتلايت"],
+      "ids": [
+        "spotlight_view",
+        "spotlight_story_container"
+      ],
+      "labels": [
+        "Spotlight",
+        "spotlight",
+        "سبوتلايت"
+      ],
       "wholeApp": false
     },
     {
       "package": "com.zhiliaoapp.musically",
       "ids": [],
-      "labels": ["TikTok"],
+      "labels": [
+        "TikTok"
+      ],
       "wholeApp": true
     },
     {
       "package": "com.ss.android.ugc.trill",
       "ids": [],
-      "labels": ["TikTok"],
+      "labels": [
+        "TikTok"
+      ],
       "wholeApp": true
     }
   ],
   "browsers": [
     {
       "package": "com.android.chrome",
-      "addressIds": ["url_bar", "url_bar_title", "location_bar"],
+      "addressIds": [
+        "url_bar",
+        "url_bar_title",
+        "location_bar"
+      ],
       "keywords": []
     },
     {
       "package": "org.mozilla.firefox",
-      "addressIds": ["mozac_browser_toolbar_url_view", "url_bar_title", "url_view"],
+      "addressIds": [
+        "mozac_browser_toolbar_url_view",
+        "url_bar_title",
+        "url_view"
+      ],
       "keywords": []
     },
     {
       "package": "com.sec.android.app.sbrowser",
-      "addressIds": ["location_bar_edit_text", "url_bar", "location_bar"],
+      "addressIds": [
+        "location_bar_edit_text",
+        "url_bar",
+        "location_bar"
+      ],
       "keywords": []
     },
     {
       "package": "com.microsoft.emmx",
-      "addressIds": ["url_bar", "location_bar", "url_bar_title"],
+      "addressIds": [
+        "url_bar",
+        "location_bar",
+        "url_bar_title"
+      ],
       "keywords": []
     },
     {
       "package": "com.brave.browser",
-      "addressIds": ["url_bar", "location_bar"],
+      "addressIds": [
+        "url_bar",
+        "location_bar"
+      ],
       "keywords": []
     },
     {
       "package": "com.opera.browser",
-      "addressIds": ["url_field", "urlbar", "address_bar"],
+      "addressIds": [
+        "url_field",
+        "urlbar",
+        "address_bar"
+      ],
       "keywords": []
     },
     {
       "package": "com.opera.mini.native",
-      "addressIds": ["url_field", "urlbar", "address_bar"],
+      "addressIds": [
+        "url_field",
+        "urlbar",
+        "address_bar"
+      ],
       "keywords": []
     },
     {
       "package": "com.duckduckgo.mobile.android",
-      "addressIds": ["omnibarTextInput", "omnibar_text_input", "url_bar"],
+      "addressIds": [
+        "omnibarTextInput",
+        "omnibar_text_input",
+        "url_bar"
+      ],
       "keywords": []
     },
     {
       "package": "com.quark.browser",
-      "addressIds": ["url_bar", "search_bar", "address_bar"],
+      "addressIds": [
+        "url_bar",
+        "search_bar",
+        "address_bar"
+      ],
       "keywords": []
     },
     {
       "package": "com.UCMobile.intl",
-      "addressIds": ["url_input", "address_bar"],
+      "addressIds": [
+        "url_input",
+        "address_bar"
+      ],
       "keywords": []
     },
     {
       "package": "com.vivaldi.browsers",
-      "addressIds": ["url_bar", "url_field"],
+      "addressIds": [
+        "url_bar",
+        "url_field"
+      ],
       "keywords": []
     },
     {
       "package": "com.instagram.android.browsers",
-      "addressIds": ["url_bar"],
+      "addressIds": [
+        "url_bar"
+      ],
       "keywords": []
     }
   ],
@@ -219,6 +293,39 @@
           "تعطيل"
         ]
       }
+    ]
+  },
+  "cleanup": {
+    "package": "com.instagram.android",
+    "following": [
+      "Following",
+      "متابَع",
+      "متابع",
+      "يتابَع"
+    ],
+    "unfollow": [
+      "Unfollow",
+      "إلغاء المتابعة",
+      "إلغاء متابعة"
+    ],
+    "select": [
+      "Select",
+      "تحديد",
+      "اختيار"
+    ],
+    "unlike": [
+      "Unlike",
+      "إلغاء الإعجاب",
+      "إلغاء الاعجاب"
+    ],
+    "confirm": [
+      "Unlike",
+      "إلغاء الإعجاب",
+      "إلغاء الاعجاب",
+      "Yes",
+      "نعم",
+      "OK",
+      "موافق"
     ]
   }
 }
